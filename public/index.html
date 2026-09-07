@@ -17,7 +17,7 @@
     </div>
   </header>
 
-  <dialog id="loginDialog" class="login-dialog">
+  <dialog id="loginDialog" class="app-dialog">
     <form id="loginForm">
       <h2>Đăng nhập admin</h2>
       <label>
@@ -36,6 +36,29 @@
       </div>
     </form>
   </dialog>
+
+  <dialog id="confirmDialog" class="app-dialog">
+    <form id="confirmForm">
+      <p id="confirmMessage" class="dialog-message"></p>
+      <div class="dialog-actions">
+        <button type="button" id="confirmCancelBtn" class="secondary">Huỷ</button>
+        <button type="submit" id="confirmOkBtn">Xác nhận</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="promptDialog" class="app-dialog">
+    <form id="promptForm">
+      <p id="promptMessage" class="dialog-message"></p>
+      <input type="text" id="promptInput" />
+      <div class="dialog-actions">
+        <button type="button" id="promptCancelBtn" class="secondary">Huỷ</button>
+        <button type="submit" id="promptOkBtn">OK</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
   <main>
     <div id="errorBox" class="error-box" hidden></div>

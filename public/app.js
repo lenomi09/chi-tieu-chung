@@ -37,6 +37,92 @@ function clearError() {
   box.textContent = '';
 }
 
+// ---- Modal xác nhận / nhập liệu / toast (thay cho confirm()/prompt()/alert() gốc) ----
+
+function showConfirm(message, { okLabel = 'Xác nhận', danger = false } = {}) {
+  return new Promise((resolve) => {
+    const dialog = $('#confirmDialog');
+    const form = $('#confirmForm');
+    const okBtn = $('#confirmOkBtn');
+    const cancelBtn = $('#confirmCancelBtn');
+    $('#confirmMessage').textContent = message;
+    okBtn.textContent = okLabel;
+    okBtn.className = danger ? 'danger' : '';
+
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      form.removeEventListener('submit', onSubmit);
+      dialog.removeEventListener('cancel', onCancel);
+      dialog.removeEventListener('close', onClose);
+      dialog.close();
+      resolve(result);
+    };
+    const onSubmit = (ev) => {
+      ev.preventDefault();
+      finish(true);
+    };
+    const onCancel = () => finish(false);
+    const onClose = () => finish(false);
+
+    form.addEventListener('submit', onSubmit);
+    cancelBtn.addEventListener('click', onCancel, { once: true });
+    dialog.addEventListener('cancel', onCancel, { once: true });
+    dialog.addEventListener('close', onClose, { once: true });
+    dialog.showModal();
+  });
+}
+
+function showPrompt(message, defaultValue = '') {
+  return new Promise((resolve) => {
+    const dialog = $('#promptDialog');
+    const form = $('#promptForm');
+    const cancelBtn = $('#promptCancelBtn');
+    const input = $('#promptInput');
+    $('#promptMessage').textContent = message;
+    input.value = defaultValue;
+
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      form.removeEventListener('submit', onSubmit);
+      dialog.removeEventListener('cancel', onCancel);
+      dialog.removeEventListener('close', onClose);
+      dialog.close();
+      resolve(result);
+    };
+    const onSubmit = (ev) => {
+      ev.preventDefault();
+      finish(input.value);
+    };
+    const onCancel = () => finish(null);
+    const onClose = () => finish(null);
+
+    form.addEventListener('submit', onSubmit);
+    cancelBtn.addEventListener('click', onCancel, { once: true });
+    dialog.addEventListener('cancel', onCancel, { once: true });
+    dialog.addEventListener('close', onClose, { once: true });
+    dialog.showModal();
+    input.focus();
+    input.select();
+  });
+}
+
+function showToast(message) {
+  const container = $('#toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = message;
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 250);
+  }, 2800);
+}
+
 // Khoá 1 nút/phần tử trong lúc handler đang chạy (vd: đang gọi API) để tránh
 // bấm nhiều lần liên tiếp tạo ra nhiều request/bản ghi trùng nhau.
 function withGuard(el, handler) {
@@ -204,7 +290,7 @@ function renderMembers() {
       nameSpan.addEventListener(
         'click',
         withGuard(nameSpan, async () => {
-          const newName = prompt('Sửa tên thành viên:', m.name);
+          const newName = await showPrompt('Sửa tên thành viên:', m.name);
           if (newName === null) return;
           const trimmed = newName.trim();
           if (!trimmed || trimmed === m.name) return;
@@ -229,7 +315,8 @@ function renderMembers() {
       delBtn.addEventListener(
         'click',
         withGuard(delBtn, async () => {
-          if (!confirm(`Xoá thành viên "${m.name}"?`)) return;
+          const ok = await showConfirm(`Xoá thành viên "${m.name}"?`, { okLabel: 'Xoá', danger: true });
+          if (!ok) return;
           try {
             clearError();
             await optimisticMutate(
@@ -387,6 +474,9 @@ $('#expenseForm').addEventListener(
       }
       resetExpenseForm();
       renderAll();
+      if (!wasAdmin) {
+        showToast('Đã gửi yêu cầu, chờ admin duyệt.');
+      }
     } catch (e) {
       showError(e.message);
     }
@@ -525,7 +615,8 @@ function renderExpenseTable() {
       delBtn.addEventListener(
         'click',
         withGuard(delBtn, async () => {
-          if (!confirm('Xoá khoản chi này?')) return;
+          const ok = await showConfirm('Xoá khoản chi này?', { okLabel: 'Xoá', danger: true });
+          if (!ok) return;
           try {
             clearError();
             await optimisticMutate(
@@ -612,8 +703,9 @@ function renderDebts() {
         'click',
         withGuard(settleBtn, async () => {
           const amount = Math.round(d.amount);
-          const confirmed = confirm(
-            `Ghi nhận "${nameOf(d.fromId)}" đã trả "${nameOf(d.toId)}" ${fmtMoney(amount)}?`
+          const confirmed = await showConfirm(
+            `Ghi nhận "${nameOf(d.fromId)}" đã trả "${nameOf(d.toId)}" ${fmtMoney(amount)}?`,
+            { okLabel: 'Ghi nhận' }
           );
           if (!confirmed) return;
           const date = todayStr();
@@ -680,13 +772,14 @@ function escapeHtml(str) {
 $('#resetAllBtn').addEventListener(
   'click',
   withGuard($('#resetAllBtn'), async () => {
-    const confirmed = confirm(
+    const confirmed = await showConfirm(
       'Xoá sạch TOÀN BỘ khoản chi và lịch sử thanh toán?\n' +
-        'Danh sách thành viên vẫn được giữ lại. Thao tác này KHÔNG THỂ hoàn tác.'
+        'Danh sách thành viên vẫn được giữ lại. Thao tác này KHÔNG THỂ hoàn tác.',
+      { okLabel: 'Tiếp tục', danger: true }
     );
     if (!confirmed) return;
 
-    const typed = prompt('Gõ "XOA" (không dấu) để xác nhận:');
+    const typed = await showPrompt('Gõ "XOA" (không dấu) để xác nhận:');
     if (!typed || typed.trim().toUpperCase() !== 'XOA') return;
 
     try {
@@ -699,6 +792,7 @@ $('#resetAllBtn').addEventListener(
         () => api('/api/reset', { method: 'POST' })
       );
       resetExpenseForm();
+      showToast('Đã xoá sạch dữ liệu chi tiêu. Danh sách thành viên vẫn được giữ nguyên.');
     } catch (e) {
       showError(e.message);
     }
