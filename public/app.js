@@ -302,7 +302,7 @@ function startEditExpense(id) {
   $('#expenseId').value = id;
   $('#expenseDate').value = e.date;
   $('#expenseDesc').value = e.description;
-  $('#expenseAmount').value = e.amount;
+  $('#expenseAmount').value = Math.round(e.amount);
   $('#expensePayer').value = e.payerId;
   $('#shareCheckboxes').dataset.touched = 'true';
   renderExpenseForm();
@@ -490,7 +490,7 @@ function renderDebts() {
       settleBtn.addEventListener('click', () => {
         $('#settleFrom').value = d.fromId;
         $('#settleTo').value = d.toId;
-        $('#settleAmount').value = d.amount;
+        $('#settleAmount').value = Math.round(d.amount);
         $('#settlementForm').scrollIntoView({ behavior: 'smooth' });
       });
 

@@ -139,7 +139,7 @@ app.post(
     await db.addExpense({
       date: req.body.date,
       description: (req.body.description || '').trim(),
-      amount: Number(req.body.amount),
+      amount: Math.round(Number(req.body.amount)),
       payerId: req.body.payerId,
       shareMemberIds: req.body.shareMemberIds.filter((id) => members.some((m) => m.id === id)),
       status: 'approved',
@@ -160,7 +160,7 @@ app.post(
     await db.addExpense({
       date: req.body.date,
       description: (req.body.description || '').trim(),
-      amount: Number(req.body.amount),
+      amount: Math.round(Number(req.body.amount)),
       payerId: req.body.payerId,
       shareMemberIds: req.body.shareMemberIds.filter((id) => members.some((m) => m.id === id)),
       status: 'pending',
@@ -205,7 +205,7 @@ app.put(
     await db.updateExpense(req.params.id, {
       date: req.body.date,
       description: (req.body.description || '').trim(),
-      amount: Number(req.body.amount),
+      amount: Math.round(Number(req.body.amount)),
       payerId: req.body.payerId,
       shareMemberIds: req.body.shareMemberIds.filter((id) => members.some((m) => m.id === id)),
     });
@@ -258,7 +258,7 @@ app.post(
       date: req.body.date,
       fromId: req.body.fromId,
       toId: req.body.toId,
-      amount: Number(req.body.amount),
+      amount: Math.round(Number(req.body.amount)),
     });
     res.json(await buildState(req));
   })
