@@ -16,6 +16,11 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Cho trình duyệt dùng chung đúng 1 bản logic tính toán với server (optimistic UI).
+app.get('/calc.js', (req, res) => {
+  res.sendFile(path.join(__dirname, 'lib', 'calc.js'));
+});
+
 // Bọc route async để lỗi tự rơi vào error handler thay vì làm crash tiến trình.
 function asyncRoute(handler) {
   return (req, res, next) => handler(req, res, next).catch(next);

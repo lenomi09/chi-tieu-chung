@@ -67,6 +67,32 @@ async function api(path, options) {
   return data;
 }
 
+// Tính lại "Tổng kết" và "Ai nợ ai" ngay trên trình duyệt, dùng chung logic với
+// server (window.calc, nạp từ /calc.js) — để cập nhật giao diện lạc quan
+// (optimistic) ngay khi bấm nút, không cần chờ round-trip mạng tới Turso.
+function recomputeDerived() {
+  const approvedExpenses = state.expenses.filter((e) => e.status === 'approved');
+  state.summary = calc.computeSummary(state.members, approvedExpenses, state.settlements);
+  state.debts = calc.computeDebts(state.members, approvedExpenses, state.settlements);
+}
+
+// Áp dụng thay đổi ngay lập tức (apply) + render, rồi mới gửi request thật lên
+// server. Nếu request lỗi, khôi phục lại đúng trạng thái trước đó và báo lỗi.
+async function optimisticMutate(apply, request) {
+  const snapshot = structuredClone(state);
+  apply();
+  recomputeDerived();
+  renderAll();
+  try {
+    state = await request();
+    renderAll();
+  } catch (e) {
+    state = snapshot;
+    renderAll();
+    throw e;
+  }
+}
+
 async function loadState() {
   state = await api('/api/state');
   renderAll();
@@ -165,11 +191,13 @@ function renderMembers() {
           if (!trimmed || trimmed === m.name) return;
           try {
             clearError();
-            state = await api(`/api/members/${m.id}`, {
-              method: 'PUT',
-              body: JSON.stringify({ name: trimmed }),
-            });
-            renderAll();
+            await optimisticMutate(
+              () => {
+                const mem = state.members.find((x) => x.id === m.id);
+                if (mem) mem.name = trimmed;
+              },
+              () => api(`/api/members/${m.id}`, { method: 'PUT', body: JSON.stringify({ name: trimmed }) })
+            );
           } catch (e) {
             showError(e.message);
           }
@@ -185,8 +213,12 @@ function renderMembers() {
           if (!confirm(`Xoá thành viên "${m.name}"?`)) return;
           try {
             clearError();
-            state = await api(`/api/members/${m.id}`, { method: 'DELETE' });
-            renderAll();
+            await optimisticMutate(
+              () => {
+                state.members = state.members.filter((x) => x.id !== m.id);
+              },
+              () => api(`/api/members/${m.id}`, { method: 'DELETE' })
+            );
           } catch (e) {
             showError(e.message);
           }
@@ -209,11 +241,15 @@ $('#memberForm').addEventListener(
     const input = $('#memberName');
     const name = input.value.trim();
     if (!name) return;
+    input.value = '';
     try {
       clearError();
-      state = await api('/api/members', { method: 'POST', body: JSON.stringify({ name }) });
-      input.value = '';
-      renderAll();
+      await optimisticMutate(
+        () => {
+          state.members.push({ id: `temp-${Date.now()}`, name });
+        },
+        () => api('/api/members', { method: 'POST', body: JSON.stringify({ name }) })
+      );
     } catch (e) {
       showError(e.message);
     }
@@ -307,21 +343,32 @@ $('#expenseForm').addEventListener(
       shareMemberIds,
     };
 
+    const wasAdmin = state.isAdmin;
+    const editingId = editingExpenseId;
+
     try {
       clearError();
-      if (editingExpenseId) {
-        state = await api(`/api/expenses/${editingExpenseId}`, {
-          method: 'PUT',
-          body: JSON.stringify(payload),
-        });
+      if (editingId) {
+        await optimisticMutate(
+          () => {
+            const exp = state.expenses.find((x) => x.id === editingId);
+            if (exp) Object.assign(exp, payload);
+          },
+          () => api(`/api/expenses/${editingId}`, { method: 'PUT', body: JSON.stringify(payload) })
+        );
       } else {
-        const endpoint = state.isAdmin ? '/api/expenses' : '/api/expense-requests';
-        state = await api(endpoint, { method: 'POST', body: JSON.stringify(payload) });
+        const tempId = `temp-${Date.now()}`;
+        const endpoint = wasAdmin ? '/api/expenses' : '/api/expense-requests';
+        await optimisticMutate(
+          () => {
+            state.expenses.push({ id: tempId, ...payload, status: wasAdmin ? 'approved' : 'pending' });
+          },
+          () => api(endpoint, { method: 'POST', body: JSON.stringify(payload) })
+        );
       }
-      const isAdmin = state.isAdmin;
       resetExpenseForm();
       renderAll();
-      if (!isAdmin) {
+      if (!wasAdmin) {
         alert('Đã gửi yêu cầu, chờ admin duyệt.');
       }
     } catch (e) {
@@ -413,8 +460,13 @@ function renderExpenseTable() {
           withGuard(approveBtn, async () => {
             try {
               clearError();
-              state = await api(`/api/expense-requests/${e.id}/approve`, { method: 'POST' });
-              renderAll();
+              await optimisticMutate(
+                () => {
+                  const exp = state.expenses.find((x) => x.id === e.id);
+                  if (exp) exp.status = 'approved';
+                },
+                () => api(`/api/expense-requests/${e.id}/approve`, { method: 'POST' })
+              );
             } catch (err) {
               showError(err.message);
             }
@@ -429,8 +481,13 @@ function renderExpenseTable() {
           withGuard(rejectBtn, async () => {
             try {
               clearError();
-              state = await api(`/api/expense-requests/${e.id}/reject`, { method: 'POST' });
-              renderAll();
+              await optimisticMutate(
+                () => {
+                  const exp = state.expenses.find((x) => x.id === e.id);
+                  if (exp) exp.status = 'rejected';
+                },
+                () => api(`/api/expense-requests/${e.id}/reject`, { method: 'POST' })
+              );
             } catch (err) {
               showError(err.message);
             }
@@ -455,9 +512,13 @@ function renderExpenseTable() {
           if (!confirm('Xoá khoản chi này?')) return;
           try {
             clearError();
-            state = await api(`/api/expenses/${e.id}`, { method: 'DELETE' });
+            await optimisticMutate(
+              () => {
+                state.expenses = state.expenses.filter((x) => x.id !== e.id);
+              },
+              () => api(`/api/expenses/${e.id}`, { method: 'DELETE' })
+            );
             if (editingExpenseId === e.id) resetExpenseForm();
-            renderAll();
           } catch (err) {
             showError(err.message);
           }
@@ -539,18 +600,19 @@ function renderDebts() {
             `Ghi nhận "${nameOf(d.fromId)}" đã trả "${nameOf(d.toId)}" ${fmtMoney(amount)}?`
           );
           if (!confirmed) return;
+          const date = todayStr();
           try {
             clearError();
-            state = await api('/api/settlements', {
-              method: 'POST',
-              body: JSON.stringify({
-                fromId: d.fromId,
-                toId: d.toId,
-                amount,
-                date: todayStr(),
-              }),
-            });
-            renderAll();
+            await optimisticMutate(
+              () => {
+                state.settlements.push({ id: `temp-${Date.now()}`, fromId: d.fromId, toId: d.toId, amount, date });
+              },
+              () =>
+                api('/api/settlements', {
+                  method: 'POST',
+                  body: JSON.stringify({ fromId: d.fromId, toId: d.toId, amount, date }),
+                })
+            );
           } catch (e) {
             showError(e.message);
           }
@@ -616,9 +678,14 @@ $('#resetAllBtn').addEventListener(
 
     try {
       clearError();
-      state = await api('/api/reset', { method: 'POST' });
+      await optimisticMutate(
+        () => {
+          state.expenses = [];
+          state.settlements = [];
+        },
+        () => api('/api/reset', { method: 'POST' })
+      );
       resetExpenseForm();
-      renderAll();
       alert('Đã xoá sạch dữ liệu chi tiêu. Danh sách thành viên vẫn được giữ nguyên.');
     } catch (e) {
       showError(e.message);
