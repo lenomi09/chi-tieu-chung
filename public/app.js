@@ -387,9 +387,6 @@ $('#expenseForm').addEventListener(
       }
       resetExpenseForm();
       renderAll();
-      if (!wasAdmin) {
-        alert('Đã gửi yêu cầu, chờ admin duyệt.');
-      }
     } catch (e) {
       showError(e.message);
     }
@@ -690,10 +687,7 @@ $('#resetAllBtn').addEventListener(
     if (!confirmed) return;
 
     const typed = prompt('Gõ "XOA" (không dấu) để xác nhận:');
-    if (!typed || typed.trim().toUpperCase() !== 'XOA') {
-      alert('Đã huỷ, không có gì bị xoá.');
-      return;
-    }
+    if (!typed || typed.trim().toUpperCase() !== 'XOA') return;
 
     try {
       clearError();
@@ -705,7 +699,6 @@ $('#resetAllBtn').addEventListener(
         () => api('/api/reset', { method: 'POST' })
       );
       resetExpenseForm();
-      alert('Đã xoá sạch dữ liệu chi tiêu. Danh sách thành viên vẫn được giữ nguyên.');
     } catch (e) {
       showError(e.message);
     }
