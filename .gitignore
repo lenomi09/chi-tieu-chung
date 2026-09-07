@@ -1,0 +1,8 @@
+node_modules/
+data.db
+data.db-shm
+data.db-wal
+data.json
+data.json.backup-before-sql-migration
+.env
+server.log

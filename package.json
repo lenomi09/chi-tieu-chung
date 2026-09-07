@@ -1,0 +1,19 @@
+{
+  "name": "chi-tieu-chung",
+  "version": "1.0.0",
+  "description": "Web app tính tiền chi tiêu chung — admin quản lý, người khác xem + gửi yêu cầu thanh toán chờ duyệt",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "node --test test/*.test.js",
+    "migrate": "node scripts/migrate-json-to-db.js"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.18.0",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2"
+  }
+}

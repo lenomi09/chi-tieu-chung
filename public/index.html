@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chi tiêu chung</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>💰 Chi tiêu chung</h1>
+    <p class="sub">Ghi chép và chia tiền chi tiêu chung trong nhóm</p>
+    <div class="auth-box">
+      <span id="authStatus" class="auth-status"></span>
+      <button type="button" id="loginBtn" class="secondary">Đăng nhập admin</button>
+      <button type="button" id="logoutBtn" class="secondary" hidden>Đăng xuất</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="errorBox" class="error-box" hidden></div>
+
+    <!-- Thành viên -->
+    <section class="card">
+      <h2>Thành viên</h2>
+      <form id="memberForm" class="inline-form admin-only" hidden>
+        <input type="text" id="memberName" placeholder="Tên thành viên mới" required />
+        <button type="submit">+ Thêm</button>
+      </form>
+      <ul id="memberList" class="member-list"></ul>
+    </section>
+
+    <!-- Thêm khoản chi -->
+    <section id="expenseFormSection" class="card admin-only" hidden>
+      <h2>Thêm khoản chi</h2>
+      <form id="expenseForm" class="expense-form">
+        <input type="hidden" id="expenseId" />
+        <div class="form-row">
+          <label>
+            Ngày
+            <input type="date" id="expenseDate" required />
+          </label>
+          <label class="grow">
+            Nội dung
+            <input type="text" id="expenseDesc" placeholder="Vd: Mua đồ ăn, giấy vệ sinh..." />
+          </label>
+          <label>
+            Số tiền (đ)
+            <input type="number" id="expenseAmount" min="1" step="1" required />
+          </label>
+        </div>
+        <div class="form-row">
+          <label class="grow">
+            Người trả
+            <select id="expensePayer" required></select>
+          </label>
+        </div>
+        <div class="form-row">
+          <div class="grow">
+            <span class="label-like">Chia cho ai</span>
+            <div class="share-actions">
+              <button type="button" id="checkAll">Tick tất cả</button>
+              <button type="button" id="uncheckAll">Bỏ tick tất cả</button>
+            </div>
+            <div id="shareCheckboxes" class="share-checkboxes"></div>
+          </div>
+        </div>
+        <div class="form-row">
+          <button type="submit" id="expenseSubmitBtn">+ Thêm khoản chi</button>
+          <button type="button" id="expenseCancelEdit" hidden>Huỷ sửa</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Danh sách khoản chi -->
+    <section class="card">
+      <h2>Danh sách khoản chi</h2>
+      <div class="table-wrap">
+        <table id="expenseTable">
+          <thead>
+            <tr>
+              <th>Ngày</th>
+              <th>Nội dung</th>
+              <th>Số tiền</th>
+              <th>Người trả</th>
+              <th>Chia cho</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="expenseTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Tổng kết -->
+    <section class="card">
+      <h2>Tổng kết theo từng người</h2>
+      <div class="table-wrap">
+        <table id="summaryTable">
+          <thead>
+            <tr>
+              <th>Thành viên</th>
+              <th>Đã trả hộ</th>
+              <th>Phải chịu</th>
+              <th>Số dư</th>
+            </tr>
+          </thead>
+          <tbody id="summaryTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Ai nợ ai -->
+    <section class="card">
+      <h2>Ai nợ ai</h2>
+      <ul id="debtList" class="debt-list"></ul>
+      <p id="debtEmpty" class="empty-msg" hidden>Không ai nợ ai cả 🎉</p>
+    </section>
+
+    <!-- Ghi nhận thanh toán -->
+    <section class="card">
+      <h2 id="settlementFormTitle">Gửi yêu cầu đã trả nợ</h2>
+      <p id="settlementFormHint" class="sub">
+        Điền thông tin bạn đã trả nợ cho ai — admin sẽ duyệt trước khi số dư được cập nhật.
+      </p>
+      <form id="settlementForm" class="form-row">
+        <label>
+          Người trả nợ
+          <select id="settleFrom" required></select>
+        </label>
+        <label>
+          Người nhận
+          <select id="settleTo" required></select>
+        </label>
+        <label>
+          Số tiền (đ)
+          <input type="number" id="settleAmount" min="1" step="1" required />
+        </label>
+        <label>
+          Ngày
+          <input type="date" id="settleDate" required />
+        </label>
+        <button type="submit" id="settlementSubmitBtn">Gửi yêu cầu</button>
+      </form>
+
+      <h3>Lịch sử thanh toán</h3>
+      <div class="table-wrap">
+        <table id="settlementTable">
+          <thead>
+            <tr>
+              <th>Ngày</th>
+              <th>Người trả nợ</th>
+              <th>Người nhận</th>
+              <th>Số tiền</th>
+              <th>Trạng thái</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="settlementTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Xoá sạch dữ liệu -->
+    <section id="dangerZoneSection" class="card danger-zone admin-only" hidden>
+      <h2>Xoá sạch dữ liệu</h2>
+      <p class="sub">
+        Dùng khi mọi người đã trả hết nợ hoặc muốn bắt đầu ghi chi tiêu mới từ đầu.
+        Thao tác này xoá toàn bộ <b>khoản chi</b> và <b>lịch sử thanh toán</b>
+        &mdash; <b>không thể hoàn tác</b>. Danh sách thành viên vẫn được giữ nguyên.
+      </p>
+      <button type="button" id="resetAllBtn" class="danger">Xoá sạch dữ liệu</button>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
