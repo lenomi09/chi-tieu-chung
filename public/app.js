@@ -132,17 +132,36 @@ function renderAuth() {
   }
 }
 
-$('#loginBtn').addEventListener(
-  'click',
-  withGuard($('#loginBtn'), async () => {
-    const password = prompt('Nhập mật khẩu admin:');
-    if (!password) return;
+$('#loginBtn').addEventListener('click', () => {
+  const dialog = $('#loginDialog');
+  const passwordInput = $('#loginPassword');
+  const dialogError = $('#loginError');
+  passwordInput.value = '';
+  dialogError.hidden = true;
+  dialog.showModal();
+  passwordInput.focus();
+});
+
+$('#loginCancelBtn').addEventListener('click', () => {
+  $('#loginDialog').close();
+});
+
+$('#loginForm').addEventListener(
+  'submit',
+  withGuard($('#loginSubmitBtn'), async (ev) => {
+    ev.preventDefault();
+    const dialog = $('#loginDialog');
+    const dialogError = $('#loginError');
+    const password = $('#loginPassword').value;
+    dialogError.hidden = true;
     try {
-      clearError();
       await api('/api/login', { method: 'POST', body: JSON.stringify({ password }) });
+      dialog.close();
+      clearError();
       await loadState();
     } catch (e) {
-      showError(e.message);
+      dialogError.textContent = e.message;
+      dialogError.hidden = false;
     }
   })
 );

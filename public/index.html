@@ -17,6 +17,26 @@
     </div>
   </header>
 
+  <dialog id="loginDialog" class="login-dialog">
+    <form id="loginForm">
+      <h2>Đăng nhập admin</h2>
+      <label>
+        Mật khẩu
+        <input
+          type="password"
+          id="loginPassword"
+          autocomplete="current-password"
+          required
+        />
+      </label>
+      <p id="loginError" class="dialog-error" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" id="loginCancelBtn" class="secondary">Huỷ</button>
+        <button type="submit" id="loginSubmitBtn">Đăng nhập</button>
+      </div>
+    </form>
+  </dialog>
+
   <main>
     <div id="errorBox" class="error-box" hidden></div>
 
