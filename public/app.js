@@ -37,6 +37,24 @@ function clearError() {
   box.textContent = '';
 }
 
+// Khoá 1 nút/phần tử trong lúc handler đang chạy (vd: đang gọi API) để tránh
+// bấm nhiều lần liên tiếp tạo ra nhiều request/bản ghi trùng nhau.
+function withGuard(el, handler) {
+  return async (...args) => {
+    const ev = args[0];
+    if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+    if (!el || el.dataset.busy === 'true') return;
+    el.dataset.busy = 'true';
+    if ('disabled' in el) el.disabled = true;
+    try {
+      await handler(...args);
+    } finally {
+      el.dataset.busy = 'false';
+      if ('disabled' in el) el.disabled = false;
+    }
+  };
+}
+
 async function api(path, options) {
   const res = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
@@ -89,27 +107,33 @@ function renderAuth() {
   }
 }
 
-$('#loginBtn').addEventListener('click', async () => {
-  const password = prompt('Nhập mật khẩu admin:');
-  if (!password) return;
-  try {
-    clearError();
-    await api('/api/login', { method: 'POST', body: JSON.stringify({ password }) });
-    await loadState();
-  } catch (e) {
-    showError(e.message);
-  }
-});
+$('#loginBtn').addEventListener(
+  'click',
+  withGuard($('#loginBtn'), async () => {
+    const password = prompt('Nhập mật khẩu admin:');
+    if (!password) return;
+    try {
+      clearError();
+      await api('/api/login', { method: 'POST', body: JSON.stringify({ password }) });
+      await loadState();
+    } catch (e) {
+      showError(e.message);
+    }
+  })
+);
 
-$('#logoutBtn').addEventListener('click', async () => {
-  try {
-    clearError();
-    await api('/api/logout', { method: 'POST' });
-    await loadState();
-  } catch (e) {
-    showError(e.message);
-  }
-});
+$('#logoutBtn').addEventListener(
+  'click',
+  withGuard($('#logoutBtn'), async () => {
+    try {
+      clearError();
+      await api('/api/logout', { method: 'POST' });
+      await loadState();
+    } catch (e) {
+      showError(e.message);
+    }
+  })
+);
 
 // ---- Thành viên ----
 
@@ -133,36 +157,42 @@ function renderMembers() {
 
     if (state.isAdmin) {
       nameSpan.title = 'Bấm để sửa tên';
-      nameSpan.addEventListener('click', async () => {
-        const newName = prompt('Sửa tên thành viên:', m.name);
-        if (newName === null) return;
-        const trimmed = newName.trim();
-        if (!trimmed || trimmed === m.name) return;
-        try {
-          clearError();
-          state = await api(`/api/members/${m.id}`, {
-            method: 'PUT',
-            body: JSON.stringify({ name: trimmed }),
-          });
-          renderAll();
-        } catch (e) {
-          showError(e.message);
-        }
-      });
+      nameSpan.addEventListener(
+        'click',
+        withGuard(nameSpan, async () => {
+          const newName = prompt('Sửa tên thành viên:', m.name);
+          if (newName === null) return;
+          const trimmed = newName.trim();
+          if (!trimmed || trimmed === m.name) return;
+          try {
+            clearError();
+            state = await api(`/api/members/${m.id}`, {
+              method: 'PUT',
+              body: JSON.stringify({ name: trimmed }),
+            });
+            renderAll();
+          } catch (e) {
+            showError(e.message);
+          }
+        })
+      );
 
       const delBtn = document.createElement('button');
       delBtn.textContent = '×';
       delBtn.title = `Xoá ${m.name}`;
-      delBtn.addEventListener('click', async () => {
-        if (!confirm(`Xoá thành viên "${m.name}"?`)) return;
-        try {
-          clearError();
-          state = await api(`/api/members/${m.id}`, { method: 'DELETE' });
-          renderAll();
-        } catch (e) {
-          showError(e.message);
-        }
-      });
+      delBtn.addEventListener(
+        'click',
+        withGuard(delBtn, async () => {
+          if (!confirm(`Xoá thành viên "${m.name}"?`)) return;
+          try {
+            clearError();
+            state = await api(`/api/members/${m.id}`, { method: 'DELETE' });
+            renderAll();
+          } catch (e) {
+            showError(e.message);
+          }
+        })
+      );
       li.appendChild(nameSpan);
       li.appendChild(delBtn);
     } else {
@@ -173,20 +203,23 @@ function renderMembers() {
   }
 }
 
-$('#memberForm').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  const input = $('#memberName');
-  const name = input.value.trim();
-  if (!name) return;
-  try {
-    clearError();
-    state = await api('/api/members', { method: 'POST', body: JSON.stringify({ name }) });
-    input.value = '';
-    renderAll();
-  } catch (e) {
-    showError(e.message);
-  }
-});
+$('#memberForm').addEventListener(
+  'submit',
+  withGuard($('#memberForm').querySelector('button[type="submit"]'), async (ev) => {
+    ev.preventDefault();
+    const input = $('#memberName');
+    const name = input.value.trim();
+    if (!name) return;
+    try {
+      clearError();
+      state = await api('/api/members', { method: 'POST', body: JSON.stringify({ name }) });
+      input.value = '';
+      renderAll();
+    } catch (e) {
+      showError(e.message);
+    }
+  })
+);
 
 // ---- Form khoản chi (admin) ----
 
@@ -259,41 +292,44 @@ function resetExpenseForm() {
 
 $('#expenseCancelEdit').addEventListener('click', resetExpenseForm);
 
-$('#expenseForm').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  const shareMemberIds = Array.from(
-    document.querySelectorAll('#shareCheckboxes input:checked')
-  ).map((el) => el.value);
+$('#expenseForm').addEventListener(
+  'submit',
+  withGuard($('#expenseSubmitBtn'), async (ev) => {
+    ev.preventDefault();
+    const shareMemberIds = Array.from(
+      document.querySelectorAll('#shareCheckboxes input:checked')
+    ).map((el) => el.value);
 
-  const payload = {
-    date: $('#expenseDate').value,
-    description: $('#expenseDesc').value.trim(),
-    amount: Number($('#expenseAmount').value),
-    payerId: $('#expensePayer').value,
-    shareMemberIds,
-  };
+    const payload = {
+      date: $('#expenseDate').value,
+      description: $('#expenseDesc').value.trim(),
+      amount: Number($('#expenseAmount').value),
+      payerId: $('#expensePayer').value,
+      shareMemberIds,
+    };
 
-  try {
-    clearError();
-    if (editingExpenseId) {
-      state = await api(`/api/expenses/${editingExpenseId}`, {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      });
-    } else {
-      const endpoint = state.isAdmin ? '/api/expenses' : '/api/expense-requests';
-      state = await api(endpoint, { method: 'POST', body: JSON.stringify(payload) });
+    try {
+      clearError();
+      if (editingExpenseId) {
+        state = await api(`/api/expenses/${editingExpenseId}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+      } else {
+        const endpoint = state.isAdmin ? '/api/expenses' : '/api/expense-requests';
+        state = await api(endpoint, { method: 'POST', body: JSON.stringify(payload) });
+      }
+      const isAdmin = state.isAdmin;
+      resetExpenseForm();
+      renderAll();
+      if (!isAdmin) {
+        alert('Đã gửi yêu cầu, chờ admin duyệt.');
+      }
+    } catch (e) {
+      showError(e.message);
     }
-    const isAdmin = state.isAdmin;
-    resetExpenseForm();
-    renderAll();
-    if (!isAdmin) {
-      alert('Đã gửi yêu cầu, chờ admin duyệt.');
-    }
-  } catch (e) {
-    showError(e.message);
-  }
-});
+  })
+);
 
 function startEditExpense(id) {
   const e = state.expenses.find((x) => x.id === id);
@@ -373,28 +409,34 @@ function renderExpenseTable() {
       if (e.status === 'pending') {
         const approveBtn = document.createElement('button');
         approveBtn.textContent = 'Duyệt';
-        approveBtn.addEventListener('click', async () => {
-          try {
-            clearError();
-            state = await api(`/api/expense-requests/${e.id}/approve`, { method: 'POST' });
-            renderAll();
-          } catch (err) {
-            showError(err.message);
-          }
-        });
+        approveBtn.addEventListener(
+          'click',
+          withGuard(approveBtn, async () => {
+            try {
+              clearError();
+              state = await api(`/api/expense-requests/${e.id}/approve`, { method: 'POST' });
+              renderAll();
+            } catch (err) {
+              showError(err.message);
+            }
+          })
+        );
 
         const rejectBtn = document.createElement('button');
         rejectBtn.className = 'danger';
         rejectBtn.textContent = 'Từ chối';
-        rejectBtn.addEventListener('click', async () => {
-          try {
-            clearError();
-            state = await api(`/api/expense-requests/${e.id}/reject`, { method: 'POST' });
-            renderAll();
-          } catch (err) {
-            showError(err.message);
-          }
-        });
+        rejectBtn.addEventListener(
+          'click',
+          withGuard(rejectBtn, async () => {
+            try {
+              clearError();
+              state = await api(`/api/expense-requests/${e.id}/reject`, { method: 'POST' });
+              renderAll();
+            } catch (err) {
+              showError(err.message);
+            }
+          })
+        );
 
         actionsWrap.appendChild(approveBtn);
         actionsWrap.appendChild(rejectBtn);
@@ -408,17 +450,20 @@ function renderExpenseTable() {
       const delBtn = document.createElement('button');
       delBtn.className = 'danger';
       delBtn.textContent = 'Xoá';
-      delBtn.addEventListener('click', async () => {
-        if (!confirm('Xoá khoản chi này?')) return;
-        try {
-          clearError();
-          state = await api(`/api/expenses/${e.id}`, { method: 'DELETE' });
-          if (editingExpenseId === e.id) resetExpenseForm();
-          renderAll();
-        } catch (err) {
-          showError(err.message);
-        }
-      });
+      delBtn.addEventListener(
+        'click',
+        withGuard(delBtn, async () => {
+          if (!confirm('Xoá khoản chi này?')) return;
+          try {
+            clearError();
+            state = await api(`/api/expenses/${e.id}`, { method: 'DELETE' });
+            if (editingExpenseId === e.id) resetExpenseForm();
+            renderAll();
+          } catch (err) {
+            showError(err.message);
+          }
+        })
+      );
 
       actionsWrap.appendChild(editBtn);
       actionsWrap.appendChild(delBtn);
@@ -524,23 +569,26 @@ function renderSettlementForm() {
   if (!$('#settleDate').value) $('#settleDate').value = todayStr();
 }
 
-$('#settlementForm').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  const payload = {
-    fromId: $('#settleFrom').value,
-    toId: $('#settleTo').value,
-    amount: Number($('#settleAmount').value),
-    date: $('#settleDate').value,
-  };
-  try {
-    clearError();
-    state = await api('/api/settlements', { method: 'POST', body: JSON.stringify(payload) });
-    $('#settleAmount').value = '';
-    renderAll();
-  } catch (e) {
-    showError(e.message);
-  }
-});
+$('#settlementForm').addEventListener(
+  'submit',
+  withGuard($('#settlementForm').querySelector('button[type="submit"]'), async (ev) => {
+    ev.preventDefault();
+    const payload = {
+      fromId: $('#settleFrom').value,
+      toId: $('#settleTo').value,
+      amount: Number($('#settleAmount').value),
+      date: $('#settleDate').value,
+    };
+    try {
+      clearError();
+      state = await api('/api/settlements', { method: 'POST', body: JSON.stringify(payload) });
+      $('#settleAmount').value = '';
+      renderAll();
+    } catch (e) {
+      showError(e.message);
+    }
+  })
+);
 
 function renderSettlementTable() {
   const tbody = $('#settlementTableBody');
@@ -574,28 +622,31 @@ function escapeHtml(str) {
 
 // ---- Xoá sạch dữ liệu ----
 
-$('#resetAllBtn').addEventListener('click', async () => {
-  const confirmed = confirm(
-    'Xoá sạch TOÀN BỘ khoản chi và lịch sử thanh toán?\n' +
-      'Danh sách thành viên vẫn được giữ lại. Thao tác này KHÔNG THỂ hoàn tác.'
-  );
-  if (!confirmed) return;
+$('#resetAllBtn').addEventListener(
+  'click',
+  withGuard($('#resetAllBtn'), async () => {
+    const confirmed = confirm(
+      'Xoá sạch TOÀN BỘ khoản chi và lịch sử thanh toán?\n' +
+        'Danh sách thành viên vẫn được giữ lại. Thao tác này KHÔNG THỂ hoàn tác.'
+    );
+    if (!confirmed) return;
 
-  const typed = prompt('Gõ "XOA" (không dấu) để xác nhận:');
-  if (!typed || typed.trim().toUpperCase() !== 'XOA') {
-    alert('Đã huỷ, không có gì bị xoá.');
-    return;
-  }
+    const typed = prompt('Gõ "XOA" (không dấu) để xác nhận:');
+    if (!typed || typed.trim().toUpperCase() !== 'XOA') {
+      alert('Đã huỷ, không có gì bị xoá.');
+      return;
+    }
 
-  try {
-    clearError();
-    state = await api('/api/reset', { method: 'POST' });
-    resetExpenseForm();
-    renderAll();
-    alert('Đã xoá sạch dữ liệu chi tiêu. Danh sách thành viên vẫn được giữ nguyên.');
-  } catch (e) {
-    showError(e.message);
-  }
-});
+    try {
+      clearError();
+      state = await api('/api/reset', { method: 'POST' });
+      resetExpenseForm();
+      renderAll();
+      alert('Đã xoá sạch dữ liệu chi tiêu. Danh sách thành viên vẫn được giữ nguyên.');
+    } catch (e) {
+      showError(e.message);
+    }
+  })
+);
 
 loadState().catch((e) => showError(e.message));
