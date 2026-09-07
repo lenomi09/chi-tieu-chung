@@ -224,6 +224,16 @@ function renderExpenseForm() {
   }
 
   if (!$('#expenseDate').value) $('#expenseDate').value = todayStr();
+
+  if (state.isAdmin) {
+    $('#expenseFormTitle').textContent = editingExpenseId ? 'Sửa khoản chi' : 'Thêm khoản chi';
+    $('#expenseFormHint').hidden = true;
+    if (!editingExpenseId) $('#expenseSubmitBtn').textContent = '+ Thêm khoản chi';
+  } else {
+    $('#expenseFormTitle').textContent = 'Gửi yêu cầu thêm khoản chi';
+    $('#expenseFormHint').hidden = false;
+    $('#expenseSubmitBtn').textContent = 'Gửi yêu cầu';
+  }
 }
 
 $('#checkAll').addEventListener('click', () => {
@@ -271,10 +281,15 @@ $('#expenseForm').addEventListener('submit', async (ev) => {
         body: JSON.stringify(payload),
       });
     } else {
-      state = await api('/api/expenses', { method: 'POST', body: JSON.stringify(payload) });
+      const endpoint = state.isAdmin ? '/api/expenses' : '/api/expense-requests';
+      state = await api(endpoint, { method: 'POST', body: JSON.stringify(payload) });
     }
+    const isAdmin = state.isAdmin;
     resetExpenseForm();
     renderAll();
+    if (!isAdmin) {
+      alert('Đã gửi yêu cầu, chờ admin duyệt.');
+    }
   } catch (e) {
     showError(e.message);
   }
@@ -308,7 +323,7 @@ function renderExpenseTable() {
 
   if (sorted.length === 0) {
     const tr = document.createElement('tr');
-    tr.innerHTML = '<td colspan="6" class="empty-msg">Chưa có khoản chi nào</td>';
+    tr.innerHTML = '<td colspan="7" class="empty-msg">Chưa có khoản chi nào</td>';
     tbody.appendChild(tr);
     return;
   }
@@ -344,10 +359,46 @@ function renderExpenseTable() {
     }
     tdShare.appendChild(shareWrap);
 
+    const tdStatus = document.createElement('td');
+    const badge = document.createElement('span');
+    badge.className = `status-badge ${e.status}`;
+    badge.textContent = STATUS_LABEL[e.status] || e.status;
+    tdStatus.appendChild(badge);
+
     const tdActions = document.createElement('td');
     if (state.isAdmin) {
       const actionsWrap = document.createElement('div');
       actionsWrap.className = 'row-actions';
+
+      if (e.status === 'pending') {
+        const approveBtn = document.createElement('button');
+        approveBtn.textContent = 'Duyệt';
+        approveBtn.addEventListener('click', async () => {
+          try {
+            clearError();
+            state = await api(`/api/expense-requests/${e.id}/approve`, { method: 'POST' });
+            renderAll();
+          } catch (err) {
+            showError(err.message);
+          }
+        });
+
+        const rejectBtn = document.createElement('button');
+        rejectBtn.className = 'danger';
+        rejectBtn.textContent = 'Từ chối';
+        rejectBtn.addEventListener('click', async () => {
+          try {
+            clearError();
+            state = await api(`/api/expense-requests/${e.id}/reject`, { method: 'POST' });
+            renderAll();
+          } catch (err) {
+            showError(err.message);
+          }
+        });
+
+        actionsWrap.appendChild(approveBtn);
+        actionsWrap.appendChild(rejectBtn);
+      }
 
       const editBtn = document.createElement('button');
       editBtn.className = 'secondary';
@@ -374,7 +425,7 @@ function renderExpenseTable() {
       tdActions.appendChild(actionsWrap);
     }
 
-    tr.append(tdDate, tdDesc, tdAmount, tdPayer, tdShare, tdActions);
+    tr.append(tdDate, tdDesc, tdAmount, tdPayer, tdShare, tdStatus, tdActions);
     tbody.appendChild(tr);
   }
 }
@@ -427,22 +478,26 @@ function renderDebts() {
       nameOf(d.toId)
     )}</b>: <b>${fmtMoney(d.amount)}</b>`;
 
-    const actions = document.createElement('div');
-    actions.className = 'debt-actions';
-
-    const settleBtn = document.createElement('button');
-    settleBtn.className = 'secondary';
-    settleBtn.textContent = state.isAdmin ? 'Ghi nhận đã trả' : 'Gửi yêu cầu đã trả';
-    settleBtn.addEventListener('click', () => {
-      $('#settleFrom').value = d.fromId;
-      $('#settleTo').value = d.toId;
-      $('#settleAmount').value = d.amount;
-      $('#settlementForm').scrollIntoView({ behavior: 'smooth' });
-    });
-
-    actions.appendChild(settleBtn);
     li.appendChild(text);
-    li.appendChild(actions);
+
+    if (state.isAdmin) {
+      const actions = document.createElement('div');
+      actions.className = 'debt-actions';
+
+      const settleBtn = document.createElement('button');
+      settleBtn.className = 'secondary';
+      settleBtn.textContent = 'Ghi nhận đã trả';
+      settleBtn.addEventListener('click', () => {
+        $('#settleFrom').value = d.fromId;
+        $('#settleTo').value = d.toId;
+        $('#settleAmount').value = d.amount;
+        $('#settlementForm').scrollIntoView({ behavior: 'smooth' });
+      });
+
+      actions.appendChild(settleBtn);
+      li.appendChild(actions);
+    }
+
     ul.appendChild(li);
   }
 }
@@ -467,17 +522,6 @@ function renderSettlementForm() {
   if (state.members.some((m) => m.id === prevFrom)) fromSelect.value = prevFrom;
   if (state.members.some((m) => m.id === prevTo)) toSelect.value = prevTo;
   if (!$('#settleDate').value) $('#settleDate').value = todayStr();
-
-  if (state.isAdmin) {
-    $('#settlementFormTitle').textContent = 'Ghi nhận thanh toán';
-    $('#settlementFormHint').textContent = 'Ghi nhận ngay khi ai đó đã thực sự trả nợ — số dư cập nhật lập tức.';
-    $('#settlementSubmitBtn').textContent = 'Ghi nhận';
-  } else {
-    $('#settlementFormTitle').textContent = 'Gửi yêu cầu đã trả nợ';
-    $('#settlementFormHint').textContent =
-      'Điền thông tin bạn đã trả nợ cho ai — admin sẽ duyệt trước khi số dư được cập nhật.';
-    $('#settlementSubmitBtn').textContent = 'Gửi yêu cầu';
-  }
 }
 
 $('#settlementForm').addEventListener('submit', async (ev) => {
@@ -488,15 +532,11 @@ $('#settlementForm').addEventListener('submit', async (ev) => {
     amount: Number($('#settleAmount').value),
     date: $('#settleDate').value,
   };
-  const endpoint = state.isAdmin ? '/api/settlements' : '/api/settlement-requests';
   try {
     clearError();
-    state = await api(endpoint, { method: 'POST', body: JSON.stringify(payload) });
+    state = await api('/api/settlements', { method: 'POST', body: JSON.stringify(payload) });
     $('#settleAmount').value = '';
     renderAll();
-    if (!state.isAdmin) {
-      alert('Đã gửi yêu cầu, chờ admin duyệt.');
-    }
   } catch (e) {
     showError(e.message);
   }
@@ -509,66 +549,19 @@ function renderSettlementTable() {
 
   if (sorted.length === 0) {
     const tr = document.createElement('tr');
-    tr.innerHTML = '<td colspan="6" class="empty-msg">Chưa có thanh toán nào</td>';
+    tr.innerHTML = '<td colspan="4" class="empty-msg">Chưa có thanh toán nào</td>';
     tbody.appendChild(tr);
     return;
   }
 
   for (const s of sorted) {
     const tr = document.createElement('tr');
-
-    const tdDate = document.createElement('td');
-    tdDate.textContent = s.date;
-    const tdFrom = document.createElement('td');
-    tdFrom.textContent = nameOf(s.fromId);
-    const tdTo = document.createElement('td');
-    tdTo.textContent = nameOf(s.toId);
-    const tdAmount = document.createElement('td');
-    tdAmount.className = 'amount';
-    tdAmount.textContent = fmtMoney(s.amount);
-
-    const tdStatus = document.createElement('td');
-    const badge = document.createElement('span');
-    badge.className = `status-badge ${s.status}`;
-    badge.textContent = STATUS_LABEL[s.status] || s.status;
-    tdStatus.appendChild(badge);
-
-    const tdActions = document.createElement('td');
-    if (state.isAdmin && s.status === 'pending') {
-      const wrap = document.createElement('div');
-      wrap.className = 'row-actions';
-
-      const approveBtn = document.createElement('button');
-      approveBtn.textContent = 'Duyệt';
-      approveBtn.addEventListener('click', async () => {
-        try {
-          clearError();
-          state = await api(`/api/settlement-requests/${s.id}/approve`, { method: 'POST' });
-          renderAll();
-        } catch (e) {
-          showError(e.message);
-        }
-      });
-
-      const rejectBtn = document.createElement('button');
-      rejectBtn.className = 'danger';
-      rejectBtn.textContent = 'Từ chối';
-      rejectBtn.addEventListener('click', async () => {
-        try {
-          clearError();
-          state = await api(`/api/settlement-requests/${s.id}/reject`, { method: 'POST' });
-          renderAll();
-        } catch (e) {
-          showError(e.message);
-        }
-      });
-
-      wrap.appendChild(approveBtn);
-      wrap.appendChild(rejectBtn);
-      tdActions.appendChild(wrap);
-    }
-
-    tr.append(tdDate, tdFrom, tdTo, tdAmount, tdStatus, tdActions);
+    tr.innerHTML = `
+      <td>${s.date}</td>
+      <td>${escapeHtml(nameOf(s.fromId))}</td>
+      <td>${escapeHtml(nameOf(s.toId))}</td>
+      <td class="amount">${fmtMoney(s.amount)}</td>
+    `;
     tbody.appendChild(tr);
   }
 }

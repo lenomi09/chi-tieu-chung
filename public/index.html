@@ -31,8 +31,12 @@
     </section>
 
     <!-- Thêm khoản chi -->
-    <section id="expenseFormSection" class="card admin-only" hidden>
-      <h2>Thêm khoản chi</h2>
+    <section id="expenseFormSection" class="card">
+      <h2 id="expenseFormTitle">Thêm khoản chi</h2>
+      <p id="expenseFormHint" class="sub" hidden>
+        Điền khoản bạn đã tự bỏ tiền ra mua — admin sẽ duyệt trước khi khoản này được tính
+        vào số dư chung.
+      </p>
       <form id="expenseForm" class="expense-form">
         <input type="hidden" id="expenseId" />
         <div class="form-row">
@@ -84,6 +88,7 @@
               <th>Số tiền</th>
               <th>Người trả</th>
               <th>Chia cho</th>
+              <th>Trạng thái</th>
               <th></th>
             </tr>
           </thead>
@@ -117,12 +122,10 @@
       <p id="debtEmpty" class="empty-msg" hidden>Không ai nợ ai cả 🎉</p>
     </section>
 
-    <!-- Ghi nhận thanh toán -->
-    <section class="card">
-      <h2 id="settlementFormTitle">Gửi yêu cầu đã trả nợ</h2>
-      <p id="settlementFormHint" class="sub">
-        Điền thông tin bạn đã trả nợ cho ai — admin sẽ duyệt trước khi số dư được cập nhật.
-      </p>
+    <!-- Ghi nhận thanh toán (chỉ admin) -->
+    <section id="settlementFormSection" class="card admin-only" hidden>
+      <h2>Ghi nhận thanh toán</h2>
+      <p class="sub">Ghi nhận ngay khi ai đó đã thực sự trả nợ — số dư cập nhật lập tức.</p>
       <form id="settlementForm" class="form-row">
         <label>
           Người trả nợ
@@ -140,7 +143,7 @@
           Ngày
           <input type="date" id="settleDate" required />
         </label>
-        <button type="submit" id="settlementSubmitBtn">Gửi yêu cầu</button>
+        <button type="submit">Ghi nhận</button>
       </form>
 
       <h3>Lịch sử thanh toán</h3>
@@ -152,8 +155,6 @@
               <th>Người trả nợ</th>
               <th>Người nhận</th>
               <th>Số tiền</th>
-              <th>Trạng thái</th>
-              <th></th>
             </tr>
           </thead>
           <tbody id="settlementTableBody"></tbody>

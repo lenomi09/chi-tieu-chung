@@ -72,7 +72,7 @@ test('luồng đăng nhập admin và phân quyền', async () => {
   assert.ok(login.cookie, 'phải nhận được cookie session');
 });
 
-test('bộ số liệu mẫu qua API thật + yêu cầu thanh toán cần admin duyệt mới tính vào số dư', async () => {
+test('bộ số liệu mẫu qua API thật + yêu cầu thêm khoản chi cần admin duyệt mới tính vào số dư', async () => {
   const { cookie } = await api('/api/login', { method: 'POST', body: { password: 'test-password' } });
 
   const addMember = async (name) => {
@@ -83,66 +83,83 @@ test('bộ số liệu mẫu qua API thật + yêu cầu thanh toán cần admin
   const minh = await addMember('Minh');
   const huy = await addMember('Huy');
 
+  // Admin thêm trực tiếp -> approved ngay
   await api('/api/expenses', {
     method: 'POST',
     cookie,
     body: { date: '2026-09-01', amount: 150000, payerId: lan, shareMemberIds: [lan, minh, huy] },
   });
-  await api('/api/expenses', {
+
+  const balanceOf = (state, name) => state.summary.find((s) => s.name === name).balance;
+  // Lan trả 150.000đ chia đều 3 người (mỗi người 50.000đ) -> Lan được nhận lại 100.000đ
+  const afterFirst = (await api('/api/state')).data;
+  assert.equal(balanceOf(afterFirst, 'Lan'), 100000);
+  assert.equal(balanceOf(afterFirst, 'Minh'), -50000);
+  assert.equal(balanceOf(afterFirst, 'Huy'), -50000);
+
+  // Minh (chưa đăng nhập) gửi yêu cầu thêm khoản chi mình đã trả -> chỉ pending, chưa tính vào số dư
+  const reqRes = await api('/api/expense-requests', {
     method: 'POST',
-    cookie,
     body: { date: '2026-09-02', amount: 100000, payerId: minh, shareMemberIds: [minh, huy] },
   });
-
-  const before = (await api('/api/state')).data;
-  const balanceOf = (state, name) => state.summary.find((s) => s.name === name).balance;
-  assert.equal(balanceOf(before, 'Lan'), 100000);
-  assert.equal(balanceOf(before, 'Minh'), 0);
-  assert.equal(balanceOf(before, 'Huy'), -100000);
-
-  // Huy (không đăng nhập) gửi yêu cầu trả Lan 50.000đ -> chỉ pending
-  const reqRes = await api('/api/settlement-requests', {
-    method: 'POST',
-    body: { date: '2026-09-05', fromId: huy, toId: lan, amount: 50000 },
-  });
-  const pendingId = reqRes.data.settlements.find((s) => s.status === 'pending').id;
+  assert.equal(reqRes.status, 200);
+  const pendingId = reqRes.data.expenses.find((e) => e.status === 'pending').id;
 
   const stillPending = (await api('/api/state')).data;
   assert.equal(balanceOf(stillPending, 'Lan'), 100000, 'chưa duyệt thì số dư không đổi');
-  assert.equal(balanceOf(stillPending, 'Huy'), -100000);
+  assert.equal(balanceOf(stillPending, 'Minh'), -50000);
+  assert.equal(balanceOf(stillPending, 'Huy'), -50000);
 
   // người ngoài không được tự duyệt
-  const forbiddenApprove = await api(`/api/settlement-requests/${pendingId}/approve`, { method: 'POST' });
+  const forbiddenApprove = await api(`/api/expense-requests/${pendingId}/approve`, { method: 'POST' });
   assert.equal(forbiddenApprove.status, 401);
 
-  // admin duyệt
-  await api(`/api/settlement-requests/${pendingId}/approve`, { method: 'POST', cookie });
+  // admin duyệt -> đúng bộ số liệu mẫu Lan/Minh/Huy
+  await api(`/api/expense-requests/${pendingId}/approve`, { method: 'POST', cookie });
   const afterApprove = (await api('/api/state')).data;
-  assert.equal(balanceOf(afterApprove, 'Lan'), 50000);
-  assert.equal(balanceOf(afterApprove, 'Huy'), -50000);
+  assert.equal(balanceOf(afterApprove, 'Lan'), 100000);
   assert.equal(balanceOf(afterApprove, 'Minh'), 0);
+  assert.equal(balanceOf(afterApprove, 'Huy'), -100000);
 
   const debtsAfter = afterApprove.debts;
   const nameOf = (id) => afterApprove.members.find((m) => m.id === id).name;
-  assert.equal(debtsAfter.find((d) => d.fromId === huy)?.toId, minh);
-  assert.equal(debtsAfter.some((d) => d.fromId === huy && d.toId === lan), false, '"Huy nợ Lan" phải biến mất');
   assert.equal(
-    debtsAfter.find((d) => nameOf(d.fromId) === 'Huy' && nameOf(d.toId) === 'Minh').amount,
+    debtsAfter.filter((d) => nameOf(d.fromId) === 'Minh' && nameOf(d.toId) === 'Lan')[0]?.amount,
+    50000
+  );
+  assert.equal(
+    debtsAfter.filter((d) => nameOf(d.fromId) === 'Huy' && nameOf(d.toId) === 'Lan')[0]?.amount,
     50000
   );
 
-  // Minh gửi yêu cầu trả Lan 50.000đ nhưng admin từ chối -> không đổi số dư, vẫn lưu lịch sử
-  const req2 = await api('/api/settlement-requests', {
+  // admin ghi nhận Huy trả Lan 50.000đ trực tiếp (không cần duyệt vì admin làm)
+  await api('/api/settlements', {
     method: 'POST',
-    body: { date: '2026-09-06', fromId: minh, toId: lan, amount: 50000 },
+    cookie,
+    body: { date: '2026-09-05', fromId: huy, toId: lan, amount: 50000 },
   });
-  const pendingId2 = req2.data.settlements.find((s) => s.status === 'pending').id;
+  const afterSettle = (await api('/api/state')).data;
+  assert.equal(balanceOf(afterSettle, 'Lan'), 50000);
+  assert.equal(balanceOf(afterSettle, 'Huy'), -50000);
+  assert.equal(
+    afterSettle.debts.some((d) => nameOf(d.fromId) === 'Huy' && nameOf(d.toId) === 'Lan'),
+    false,
+    '"Huy nợ Lan" phải biến mất'
+  );
 
-  await api(`/api/settlement-requests/${pendingId2}/reject`, { method: 'POST', cookie });
+  // Minh gửi yêu cầu thêm khoản chi nhưng bị admin từ chối -> không đổi số dư, vẫn lưu lịch sử
+  const req2 = await api('/api/expense-requests', {
+    method: 'POST',
+    body: { date: '2026-09-06', amount: 60000, payerId: minh, shareMemberIds: [minh, huy] },
+  });
+  const pendingId2 = req2.data.expenses.find((e) => e.status === 'pending').id;
+
+  await api(`/api/expense-requests/${pendingId2}/reject`, { method: 'POST', cookie });
   const afterReject = (await api('/api/state')).data;
-  assert.equal(balanceOf(afterReject, 'Lan'), 50000, 'từ chối thì số dư không đổi');
-  assert.equal(balanceOf(afterReject, 'Minh'), 0);
+  assert.equal(balanceOf(afterReject, 'Minh'), 0, 'từ chối thì số dư không đổi so với trước đó');
+  assert.equal(balanceOf(afterReject, 'Lan'), 50000);
+  assert.equal(balanceOf(afterReject, 'Huy'), -50000);
 
-  const rejectedEntry = afterReject.settlements.find((s) => s.id === pendingId2);
+  const rejectedEntry = afterReject.expenses.find((e) => e.id === pendingId2);
   assert.equal(rejectedEntry.status, 'rejected');
 });

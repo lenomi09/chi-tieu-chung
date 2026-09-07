@@ -23,9 +23,9 @@ function asyncRoute(handler) {
 
 async function buildState(req) {
   const { members, expenses, settlements } = await db.getState();
-  const approvedSettlements = settlements.filter((s) => s.status === 'approved');
-  const summary = computeSummary(members, expenses, approvedSettlements);
-  const debts = computeDebts(members, expenses, approvedSettlements);
+  const approvedExpenses = expenses.filter((e) => e.status === 'approved');
+  const summary = computeSummary(members, approvedExpenses, settlements);
+  const debts = computeDebts(members, approvedExpenses, settlements);
   return {
     isAdmin: auth.isAdminRequest(req),
     members,
@@ -107,7 +107,7 @@ app.delete(
   })
 );
 
-// ---- Khoản chi (chỉ admin) ----
+// ---- Khoản chi ----
 
 function validateExpenseInput(body, members) {
   const amount = Number(body.amount);
@@ -142,7 +142,51 @@ app.post(
       amount: Number(req.body.amount),
       payerId: req.body.payerId,
       shareMemberIds: req.body.shareMemberIds.filter((id) => members.some((m) => m.id === id)),
+      status: 'approved',
     });
+    res.json(await buildState(req));
+  })
+);
+
+// ---- Yêu cầu thêm khoản chi (ai cũng gửi được, chờ admin duyệt) ----
+
+app.post(
+  '/api/expense-requests',
+  asyncRoute(async (req, res) => {
+    const members = await db.getMembers();
+    const err = validateExpenseInput(req.body, members);
+    if (err) return res.status(400).json({ error: err });
+
+    await db.addExpense({
+      date: req.body.date,
+      description: (req.body.description || '').trim(),
+      amount: Number(req.body.amount),
+      payerId: req.body.payerId,
+      shareMemberIds: req.body.shareMemberIds.filter((id) => members.some((m) => m.id === id)),
+      status: 'pending',
+    });
+    res.json(await buildState(req));
+  })
+);
+
+app.post(
+  '/api/expense-requests/:id/approve',
+  auth.requireAdmin,
+  asyncRoute(async (req, res) => {
+    const e = await db.getExpenseById(req.params.id);
+    if (!e) return res.status(404).json({ error: 'Không tìm thấy yêu cầu khoản chi' });
+    await db.setExpenseStatus(req.params.id, 'approved');
+    res.json(await buildState(req));
+  })
+);
+
+app.post(
+  '/api/expense-requests/:id/reject',
+  auth.requireAdmin,
+  asyncRoute(async (req, res) => {
+    const e = await db.getExpenseById(req.params.id);
+    if (!e) return res.status(404).json({ error: 'Không tìm thấy yêu cầu khoản chi' });
+    await db.setExpenseStatus(req.params.id, 'rejected');
     res.json(await buildState(req));
   })
 );
@@ -215,50 +259,7 @@ app.post(
       fromId: req.body.fromId,
       toId: req.body.toId,
       amount: Number(req.body.amount),
-      status: 'approved',
     });
-    res.json(await buildState(req));
-  })
-);
-
-// ---- Yêu cầu thanh toán (ai cũng gửi được, chờ admin duyệt) ----
-
-app.post(
-  '/api/settlement-requests',
-  asyncRoute(async (req, res) => {
-    const members = await db.getMembers();
-    const err = validateSettlementInput(req.body, members);
-    if (err) return res.status(400).json({ error: err });
-
-    await db.addSettlement({
-      date: req.body.date,
-      fromId: req.body.fromId,
-      toId: req.body.toId,
-      amount: Number(req.body.amount),
-      status: 'pending',
-    });
-    res.json(await buildState(req));
-  })
-);
-
-app.post(
-  '/api/settlement-requests/:id/approve',
-  auth.requireAdmin,
-  asyncRoute(async (req, res) => {
-    const s = await db.getSettlementById(req.params.id);
-    if (!s) return res.status(404).json({ error: 'Không tìm thấy yêu cầu thanh toán' });
-    await db.setSettlementStatus(req.params.id, 'approved');
-    res.json(await buildState(req));
-  })
-);
-
-app.post(
-  '/api/settlement-requests/:id/reject',
-  auth.requireAdmin,
-  asyncRoute(async (req, res) => {
-    const s = await db.getSettlementById(req.params.id);
-    if (!s) return res.status(404).json({ error: 'Không tìm thấy yêu cầu thanh toán' });
-    await db.setSettlementStatus(req.params.id, 'rejected');
     res.json(await buildState(req));
   })
 );
