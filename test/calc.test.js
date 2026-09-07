@@ -97,14 +97,44 @@ test('chia riêng cho vài người không ảnh hưởng người không đư�
   assert.equal(byId.huy.balance, 0);
 });
 
-test('thanh toán vượt quá không tạo nợ ngược dương giả (net âm bị bỏ qua)', () => {
+test('thanh toán vượt quá số nợ thực tế: phần dư bị bỏ qua, KHÔNG tạo nợ ngược', () => {
   const settlements = [
     { id: 's1', date: '2026-09-05', fromId: 'huy', toId: 'lan', amount: 200000 },
   ];
   const debts = computeDebts(members, expenses, settlements);
-  // Huy trả dư 150.000đ cho Lan (Huy chỉ nợ Lan 50.000), Lan giờ "nợ ngược" Huy 150.000
-  const lanNoHuy = findDebt(debts, 'lan', 'huy');
-  assert.ok(lanNoHuy);
-  assert.equal(lanNoHuy.amount, 150000);
+  const summary = computeSummary(members, expenses, settlements);
+  const byId = Object.fromEntries(summary.map((s) => [s.id, s]));
+
+  // Huy trả dư 150.000đ cho Lan (Huy chỉ nợ Lan 50.000): 50.000 nợ thật được xoá,
+  // 150.000 dư ra bị bỏ qua — Lan KHÔNG nợ ngược lại Huy phần dư đó.
   assert.equal(findDebt(debts, 'huy', 'lan'), undefined);
+  assert.equal(findDebt(debts, 'lan', 'huy'), undefined);
+  // Huy vẫn còn nợ Minh 50.000 (không liên quan) -> số dư Huy chỉ cải thiện đúng
+  // bằng phần nợ Lan đã xoá (50.000), không phải toàn bộ 200.000 đã trả.
+  assert.equal(byId.huy.balance, -50000);
+  assert.equal(byId.lan.balance, 50000);
+});
+
+test('xoá khoản chi sau khi đã ghi nhận thanh toán: nợ liên quan biến mất, không để lại nợ ảo', () => {
+  // Chỉ còn expense2 (Minh trả 100k, chia Minh/Huy) — coi như đã xoá expense1 (Lan trả 150k)
+  const remainingExpenses = [expenses[1]];
+  const settlements = [
+    { id: 's1', date: '2026-09-05', fromId: 'huy', toId: 'lan', amount: 50000 },
+  ];
+  const debts = computeDebts(members, remainingExpenses, settlements);
+  const summary = computeSummary(members, remainingExpenses, settlements);
+  const byId = Object.fromEntries(summary.map((s) => [s.id, s]));
+
+  // Không còn khoản chi nào liên quan tới Lan -> thanh toán Huy->Lan không còn tác dụng gì,
+  // tuyệt đối không được biến thành "Lan nợ Huy".
+  assert.equal(findDebt(debts, 'lan', 'huy'), undefined);
+  assert.equal(findDebt(debts, 'huy', 'lan'), undefined);
+  assert.equal(byId.lan.balance, 0);
+
+  // Khoản nợ Huy->Minh (từ expense2) không liên quan gì tới Lan nên vẫn giữ nguyên.
+  const huyNoMinh = findDebt(debts, 'huy', 'minh');
+  assert.ok(huyNoMinh);
+  assert.equal(huyNoMinh.amount, 50000);
+  assert.equal(byId.huy.balance, -50000);
+  assert.equal(byId.minh.balance, 50000);
 });
