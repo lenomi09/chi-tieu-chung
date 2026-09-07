@@ -122,31 +122,13 @@
       <p id="debtEmpty" class="empty-msg" hidden>Không ai nợ ai cả 🎉</p>
     </section>
 
-    <!-- Ghi nhận thanh toán (chỉ admin) -->
+    <!-- Lịch sử thanh toán (chỉ admin) -->
     <section id="settlementFormSection" class="card admin-only" hidden>
-      <h2>Ghi nhận thanh toán</h2>
-      <p class="sub">Ghi nhận ngay khi ai đó đã thực sự trả nợ — số dư cập nhật lập tức.</p>
-      <form id="settlementForm" class="form-row">
-        <label>
-          Người trả nợ
-          <select id="settleFrom" required></select>
-        </label>
-        <label>
-          Người nhận
-          <select id="settleTo" required></select>
-        </label>
-        <label>
-          Số tiền (đ)
-          <input type="number" id="settleAmount" min="1" step="1" required />
-        </label>
-        <label>
-          Ngày
-          <input type="date" id="settleDate" required />
-        </label>
-        <button type="submit">Ghi nhận</button>
-      </form>
-
-      <h3>Lịch sử thanh toán</h3>
+      <h2>Lịch sử thanh toán</h2>
+      <p class="sub">
+        Ghi nhận thanh toán bằng cách bấm "Ghi nhận đã trả" trên từng dòng ở mục
+        "Ai nợ ai" bên trên — không nhập tay ở đây để tránh ghi nhầm người/số tiền.
+      </p>
       <div class="table-wrap">
         <table id="settlementTable">
           <thead>

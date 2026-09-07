@@ -79,7 +79,6 @@ function renderAll() {
   renderExpenseTable();
   renderSummary();
   renderDebts();
-  renderSettlementForm();
   renderSettlementTable();
 }
 
@@ -532,12 +531,31 @@ function renderDebts() {
       const settleBtn = document.createElement('button');
       settleBtn.className = 'secondary';
       settleBtn.textContent = 'Ghi nhận đã trả';
-      settleBtn.addEventListener('click', () => {
-        $('#settleFrom').value = d.fromId;
-        $('#settleTo').value = d.toId;
-        $('#settleAmount').value = Math.round(d.amount);
-        $('#settlementForm').scrollIntoView({ behavior: 'smooth' });
-      });
+      settleBtn.addEventListener(
+        'click',
+        withGuard(settleBtn, async () => {
+          const amount = Math.round(d.amount);
+          const confirmed = confirm(
+            `Ghi nhận "${nameOf(d.fromId)}" đã trả "${nameOf(d.toId)}" ${fmtMoney(amount)}?`
+          );
+          if (!confirmed) return;
+          try {
+            clearError();
+            state = await api('/api/settlements', {
+              method: 'POST',
+              body: JSON.stringify({
+                fromId: d.fromId,
+                toId: d.toId,
+                amount,
+                date: todayStr(),
+              }),
+            });
+            renderAll();
+          } catch (e) {
+            showError(e.message);
+          }
+        })
+      );
 
       actions.appendChild(settleBtn);
       li.appendChild(actions);
@@ -548,47 +566,6 @@ function renderDebts() {
 }
 
 // ---- Thanh toán ----
-
-function renderSettlementForm() {
-  const fromSelect = $('#settleFrom');
-  const toSelect = $('#settleTo');
-  const prevFrom = fromSelect.value;
-  const prevTo = toSelect.value;
-
-  for (const sel of [fromSelect, toSelect]) {
-    sel.innerHTML = '<option value="">-- Chọn --</option>';
-    for (const m of state.members) {
-      const opt = document.createElement('option');
-      opt.value = m.id;
-      opt.textContent = m.name;
-      sel.appendChild(opt);
-    }
-  }
-  if (state.members.some((m) => m.id === prevFrom)) fromSelect.value = prevFrom;
-  if (state.members.some((m) => m.id === prevTo)) toSelect.value = prevTo;
-  if (!$('#settleDate').value) $('#settleDate').value = todayStr();
-}
-
-$('#settlementForm').addEventListener(
-  'submit',
-  withGuard($('#settlementForm').querySelector('button[type="submit"]'), async (ev) => {
-    ev.preventDefault();
-    const payload = {
-      fromId: $('#settleFrom').value,
-      toId: $('#settleTo').value,
-      amount: Number($('#settleAmount').value),
-      date: $('#settleDate').value,
-    };
-    try {
-      clearError();
-      state = await api('/api/settlements', { method: 'POST', body: JSON.stringify(payload) });
-      $('#settleAmount').value = '';
-      renderAll();
-    } catch (e) {
-      showError(e.message);
-    }
-  })
-);
 
 function renderSettlementTable() {
   const tbody = $('#settlementTableBody');
