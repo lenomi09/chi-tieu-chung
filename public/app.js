@@ -949,9 +949,6 @@ function openBillDialog(src) {
   img.src = src;
 }
 
-$('#billZoomInBtn').addEventListener('click', () => setBillZoom(billZoom + 0.25));
-$('#billZoomOutBtn').addEventListener('click', () => setBillZoom(billZoom - 0.25));
-$('#billZoomResetBtn').addEventListener('click', () => setBillZoom(1));
 $('#billCloseBtn').addEventListener('click', () => $('#billViewDialog').close());
 
 $('#billImageWrap').addEventListener(
