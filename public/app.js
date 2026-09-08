@@ -442,7 +442,6 @@ function compressImageFile(file, { maxDim = 1600, quality = 0.82 } = {}) {
 function showReceiptPreview(dataUrl) {
   $('#receiptPreviewImg').src = dataUrl;
   $('#receiptPreviewWrap').hidden = false;
-  $('#receiptDropzone').hidden = true;
 }
 
 function clearReceiptField() {
@@ -450,7 +449,6 @@ function clearReceiptField() {
   $('#expenseReceiptInput').value = '';
   $('#receiptPreviewWrap').hidden = true;
   $('#receiptPreviewImg').src = '';
-  $('#receiptDropzone').hidden = false;
 }
 
 async function handleReceiptFile(file) {

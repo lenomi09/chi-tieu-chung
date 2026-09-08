@@ -470,6 +470,13 @@ tbody tr:hover {
   margin: 0 0 12px;
 }
 
+.receipt-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .receipt-dropzone {
   display: flex;
   flex-direction: column;
@@ -482,6 +489,7 @@ tbody tr:hover {
   background: #fafafa;
   text-align: center;
   cursor: pointer;
+  flex: 1 1 220px;
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
 }
 
@@ -520,10 +528,10 @@ tbody tr:hover {
 }
 
 .receipt-preview-wrap {
-  margin-top: 10px;
   display: flex;
   align-items: center;
   gap: 12px;
+  flex: 0 0 auto;
 }
 
 .receipt-preview-img {
