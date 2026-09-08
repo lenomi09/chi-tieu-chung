@@ -290,9 +290,15 @@ async function optimisticMutate(apply, request) {
   }
 }
 
+function hideLoadingOverlay() {
+  const overlay = $('#loadingOverlay');
+  if (overlay) overlay.hidden = true;
+}
+
 async function loadState() {
   state = await api('/api/state');
   renderAll();
+  hideLoadingOverlay();
 }
 
 function renderAll() {
@@ -1532,4 +1538,7 @@ $('#settlementFilterReset').addEventListener('click', () => {
   renderSettlementTable();
 });
 
-loadState().catch((e) => showError(e.message));
+loadState().catch((e) => {
+  hideLoadingOverlay();
+  showError(e.message);
+});
