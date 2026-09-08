@@ -72,23 +72,37 @@
   <main>
     <div id="errorBox" class="error-box" hidden></div>
 
-    <!-- Thành viên -->
-    <section class="card">
-      <h2>Thành viên</h2>
-      <form id="memberForm" class="inline-form admin-only" hidden>
-        <input type="text" id="memberName" placeholder="Tên thành viên mới" required />
-        <button type="submit">+ Thêm</button>
-      </form>
-      <ul id="memberList" class="member-list"></ul>
-    </section>
+    <div class="layout">
+      <aside class="layout-sidebar">
+        <!-- Thành viên -->
+        <section class="card">
+          <h2>Thành viên</h2>
+          <form id="memberForm" class="inline-form admin-only" hidden>
+            <input type="text" id="memberName" placeholder="Tên thành viên mới" required />
+            <button type="submit">+ Thêm</button>
+          </form>
+          <ul id="memberList" class="member-list"></ul>
+        </section>
 
+        <!-- Tổng kết -->
+        <section class="card">
+          <h2>Tổng kết theo từng người</h2>
+          <ul id="summaryList" class="summary-list"></ul>
+        </section>
+
+        <!-- Ai nợ ai -->
+        <section class="card">
+          <h2>Ai nợ ai</h2>
+          <ul id="debtList" class="debt-list"></ul>
+          <p id="debtEmpty" class="empty-msg" hidden>Không ai nợ ai cả 🎉</p>
+        </section>
+      </aside>
+
+      <div class="layout-content">
     <!-- Thêm khoản chi -->
     <section id="expenseFormSection" class="card">
       <h2 id="expenseFormTitle">Thêm khoản chi</h2>
-      <p id="expenseFormHint" class="sub" hidden>
-        Điền khoản bạn đã tự bỏ tiền ra mua — admin sẽ duyệt trước khi khoản này được tính
-        vào số dư chung.
-      </p>
+      <p id="expenseFormHint" class="sub" hidden>Khoản bạn tự chi — chờ admin duyệt mới tính vào số dư.</p>
       <form id="expenseForm" class="expense-form">
         <input type="hidden" id="expenseId" />
         <div class="form-row">
@@ -117,8 +131,13 @@
             <div class="share-actions">
               <button type="button" id="checkAll">Tick tất cả</button>
               <button type="button" id="uncheckAll">Bỏ tick tất cả</button>
+              <label class="share-custom-toggle">
+                <input type="checkbox" id="shareCustomToggle" />
+                Chia riêng số tiền
+              </label>
             </div>
             <div id="shareCheckboxes" class="share-checkboxes"></div>
+            <div id="shareAmountsTotal" class="share-amounts-total" hidden></div>
           </div>
         </div>
         <div class="form-row">
@@ -130,7 +149,7 @@
                 <span class="receipt-dropzone-icon">🧾</span>
                 <span class="receipt-dropzone-text">
                   <strong>Bấm để chọn ảnh bill</strong>
-                  <span>hoặc kéo thả ảnh vào đây, hoặc dán (Ctrl+V)</span>
+                  <span>kéo-thả hoặc dán (Ctrl+V)</span>
                 </span>
               </div>
               <div id="receiptPreviewWrap" class="receipt-preview-wrap" hidden>
@@ -150,6 +169,19 @@
     <!-- Danh sách khoản chi -->
     <section class="card">
       <h2>Danh sách khoản chi</h2>
+      <div id="expenseFilterBar" class="filter-bar">
+        <input type="text" id="expenseFilterQ" placeholder="Tìm theo nội dung..." />
+        <select id="expenseFilterPayer"></select>
+        <select id="expenseFilterStatus">
+          <option value="">Tất cả trạng thái</option>
+          <option value="pending">Chờ duyệt</option>
+          <option value="approved">Đã duyệt</option>
+          <option value="rejected">Từ chối</option>
+        </select>
+        <label class="filter-date-label">Từ <input type="date" id="expenseFilterFrom" /></label>
+        <label class="filter-date-label">Đến <input type="date" id="expenseFilterTo" /></label>
+        <button type="button" id="expenseFilterReset" class="secondary">Xoá lọc</button>
+      </div>
       <div class="table-wrap">
         <table id="expenseTable">
           <thead>
@@ -167,40 +199,25 @@
           <tbody id="expenseTableBody"></tbody>
         </table>
       </div>
-    </section>
-
-    <!-- Tổng kết -->
-    <section class="card">
-      <h2>Tổng kết theo từng người</h2>
-      <div class="table-wrap">
-        <table id="summaryTable">
-          <thead>
-            <tr>
-              <th>Thành viên</th>
-              <th>Đã trả hộ</th>
-              <th>Phải chịu</th>
-              <th>Số dư</th>
-            </tr>
-          </thead>
-          <tbody id="summaryTableBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- Ai nợ ai -->
-    <section class="card">
-      <h2>Ai nợ ai</h2>
-      <ul id="debtList" class="debt-list"></ul>
-      <p id="debtEmpty" class="empty-msg" hidden>Không ai nợ ai cả 🎉</p>
+      <div id="expensePagination" class="pagination"></div>
     </section>
 
     <!-- Lịch sử thanh toán -->
     <section id="settlementFormSection" class="card">
       <h2>Lịch sử thanh toán</h2>
-      <p class="sub">
-        Ghi nhận/gửi yêu cầu thanh toán bằng cách bấm nút tương ứng trên từng dòng ở mục
-        "Ai nợ ai" bên trên — không nhập tay ở đây để tránh ghi nhầm người/số tiền.
-      </p>
+      <div id="settlementFilterBar" class="filter-bar">
+        <select id="settlementFilterFromMember"></select>
+        <select id="settlementFilterToMember"></select>
+        <select id="settlementFilterStatus">
+          <option value="">Tất cả trạng thái</option>
+          <option value="pending">Chờ duyệt</option>
+          <option value="approved">Đã duyệt</option>
+          <option value="rejected">Từ chối</option>
+        </select>
+        <label class="filter-date-label">Từ <input type="date" id="settlementFilterFrom" /></label>
+        <label class="filter-date-label">Đến <input type="date" id="settlementFilterTo" /></label>
+        <button type="button" id="settlementFilterReset" class="secondary">Xoá lọc</button>
+      </div>
       <div class="table-wrap">
         <table id="settlementTable">
           <thead>
@@ -216,15 +233,17 @@
           <tbody id="settlementTableBody"></tbody>
         </table>
       </div>
+      <div id="settlementPagination" class="pagination"></div>
     </section>
+      </div>
+    </div>
 
     <!-- Xoá sạch dữ liệu -->
     <section id="dangerZoneSection" class="card danger-zone admin-only" hidden>
       <h2>Xoá sạch dữ liệu</h2>
       <p class="sub">
-        Dùng khi mọi người đã trả hết nợ hoặc muốn bắt đầu ghi chi tiêu mới từ đầu.
-        Thao tác này xoá toàn bộ <b>khoản chi</b> và <b>lịch sử thanh toán</b>
-        &mdash; <b>không thể hoàn tác</b>. Danh sách thành viên vẫn được giữ nguyên.
+        Xoá toàn bộ <b>khoản chi</b> và <b>lịch sử thanh toán</b> —
+        <b>không thể hoàn tác</b>. Thành viên vẫn được giữ.
       </p>
       <button type="button" id="resetAllBtn" class="danger">Xoá sạch dữ liệu</button>
     </section>

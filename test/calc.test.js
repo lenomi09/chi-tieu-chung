@@ -115,6 +115,30 @@ test('thanh toán vượt quá số nợ thực tế: phần dư bị bỏ qua, 
   assert.equal(byId.lan.balance, 50000);
 });
 
+test('chia riêng (shareAmounts): mỗi người nợ đúng số tiền riêng, không chia đều', () => {
+  const expensesRiêng = [
+    {
+      id: 'e1',
+      date: '2026-09-01',
+      description: 'Winmart, mỗi người mua đồ khác nhau',
+      amount: 150000,
+      payerId: 'lan',
+      shareMemberIds: ['lan', 'minh', 'huy'],
+      shareAmounts: { lan: 50000, minh: 30000, huy: 70000 },
+    },
+  ];
+  const summary = computeSummary(members, expensesRiêng, []);
+  const byId = Object.fromEntries(summary.map((s) => [s.id, s]));
+  const debts = computeDebts(members, expensesRiêng, []);
+
+  assert.equal(byId.minh.totalOwed, 30000);
+  assert.equal(byId.huy.totalOwed, 70000);
+  assert.equal(findDebt(debts, 'minh', 'lan').amount, 30000);
+  assert.equal(findDebt(debts, 'huy', 'lan').amount, 70000);
+  // Lan tự trả phần của mình (50.000) nên không nợ ai vì khoản này.
+  assert.equal(byId.lan.balance, 100000);
+});
+
 test('xoá khoản chi sau khi đã ghi nhận thanh toán: nợ liên quan biến mất, không để lại nợ ảo', () => {
   // Chỉ còn expense2 (Minh trả 100k, chia Minh/Huy) — coi như đã xoá expense1 (Lan trả 150k)
   const remainingExpenses = [expenses[1]];

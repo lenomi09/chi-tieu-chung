@@ -4,6 +4,12 @@ let state = { isAdmin: false, members: [], expenses: [], settlements: [], summar
 let editingExpenseId = null;
 let currentReceipt = null; // data URL ảnh bill đang gắn với form khoản chi (null = không có)
 
+const PAGE_SIZE = 5;
+let expenseFilters = { q: '', payerId: '', status: '', from: '', to: '' };
+let expensePage = 1;
+let settlementFilters = { fromId: '', toId: '', status: '', from: '', to: '' };
+let settlementPage = 1;
+
 const $ = (sel) => document.querySelector(sel);
 
 const STATUS_LABEL = {
@@ -23,6 +29,64 @@ function nameOf(id) {
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
+}
+
+// Render thanh phân trang dùng chung cho bảng khoản chi và bảng thanh toán.
+// `page` có thể bị lệch (vd sau khi lọc còn ít dòng hơn) nên hàm này tự kẹp lại
+// trong khoảng hợp lệ và trả về giá trị đã kẹp để nơi gọi cập nhật state.
+function renderPagination(container, { total, page, pageSize, onChange }) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const clampedPage = Math.min(Math.max(1, page), totalPages);
+
+  container.innerHTML = '';
+
+  const info = document.createElement('span');
+  if (total === 0) {
+    info.textContent = 'Không có dòng nào';
+  } else {
+    const start = (clampedPage - 1) * pageSize + 1;
+    const end = Math.min(total, clampedPage * pageSize);
+    info.textContent = `Hiện ${start}–${end} / ${total}`;
+  }
+
+  const nav = document.createElement('div');
+  nav.className = 'pagination-nav';
+
+  const prevBtn = document.createElement('button');
+  prevBtn.type = 'button';
+  prevBtn.className = 'secondary';
+  prevBtn.textContent = '‹ Trước';
+  prevBtn.disabled = clampedPage <= 1;
+  prevBtn.addEventListener('click', () => onChange(clampedPage - 1));
+
+  const pageInfo = document.createElement('span');
+  pageInfo.textContent = `Trang ${clampedPage}/${totalPages}`;
+
+  const nextBtn = document.createElement('button');
+  nextBtn.type = 'button';
+  nextBtn.className = 'secondary';
+  nextBtn.textContent = 'Sau ›';
+  nextBtn.disabled = clampedPage >= totalPages;
+  nextBtn.addEventListener('click', () => onChange(clampedPage + 1));
+
+  nav.append(prevBtn, pageInfo, nextBtn);
+  container.append(info, nav);
+
+  return clampedPage;
+}
+
+// Đổ danh sách thành viên vào 1 <select> bộ lọc, giữ lại lựa chọn hiện tại
+// (đọc từ `selected`, không đọc từ DOM) để không bị nhảy về "Tất cả" khi
+// danh sách thành viên thay đổi.
+function populateMemberFilterSelect(select, selected, allLabel) {
+  select.innerHTML = `<option value="">${allLabel}</option>`;
+  for (const m of state.members) {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.name;
+    select.appendChild(opt);
+  }
+  select.value = selected;
 }
 
 function showError(msg) {
@@ -204,12 +268,12 @@ function renderAuth() {
   const logoutBtn = $('#logoutBtn');
 
   if (state.isAdmin) {
-    status.textContent = 'Đang đăng nhập với quyền admin';
+    status.textContent = 'Admin';
     status.classList.add('is-admin');
     loginBtn.hidden = true;
     logoutBtn.hidden = false;
   } else {
-    status.textContent = 'Đang xem ở chế độ chỉ xem';
+    status.textContent = 'Chỉ xem';
     status.classList.remove('is-admin');
     loginBtn.hidden = false;
     logoutBtn.hidden = true;
@@ -380,9 +444,13 @@ function renderExpenseForm() {
 
   const shareBox = $('#shareCheckboxes');
   const previouslyChecked = new Set(
-    Array.from(shareBox.querySelectorAll('input:checked')).map((el) => el.value)
+    Array.from(shareBox.querySelectorAll('input[type="checkbox"]:checked')).map((el) => el.value)
+  );
+  const previousExtras = new Map(
+    Array.from(shareBox.querySelectorAll('.share-amount-input')).map((el) => [el.dataset.member, el.value])
   );
   const isFreshForm = editingExpenseId === null && previouslyChecked.size === 0 && shareBox.dataset.touched !== 'true';
+  const customMode = $('#shareCustomToggle').checked;
 
   shareBox.innerHTML = '';
   for (const m of state.members) {
@@ -393,11 +461,37 @@ function renderExpenseForm() {
     cb.checked = isFreshForm ? true : previouslyChecked.has(m.id);
     cb.addEventListener('change', () => {
       shareBox.dataset.touched = 'true';
+      refreshShareAmounts();
     });
+
+    // Ô này chỉ nhập phần MUA THÊM RIÊNG của người đó (để trống = không mua
+    // thêm gì). Phần chung còn lại sau khi trừ hết các khoản mua thêm sẽ tự
+    // chia đều cho tất cả người được tick — khỏi phải tự tính nhẩm.
+    const extraInput = document.createElement('input');
+    extraInput.type = 'number';
+    extraInput.className = 'share-amount-input';
+    extraInput.min = '0';
+    extraInput.step = '1';
+    extraInput.placeholder = '+ riêng';
+    extraInput.title = 'Số tiền người này mua thêm riêng, ngoài phần chia đều chung (để trống nếu không có)';
+    extraInput.dataset.member = m.id;
+    if (previousExtras.has(m.id)) extraInput.value = previousExtras.get(m.id);
+    extraInput.hidden = !customMode || !cb.checked;
+    extraInput.addEventListener('input', refreshShareAmounts);
+    extraInput.addEventListener('click', (ev) => ev.stopPropagation());
+
+    const finalNote = document.createElement('span');
+    finalNote.className = 'share-final-note';
+    finalNote.dataset.member = m.id;
+    finalNote.hidden = !customMode || !cb.checked;
+
     label.appendChild(cb);
     label.appendChild(document.createTextNode(m.name));
+    label.appendChild(extraInput);
+    label.appendChild(finalNote);
     shareBox.appendChild(label);
   }
+  refreshShareAmounts();
 
   if (!$('#expenseDate').value) $('#expenseDate').value = todayStr();
 
@@ -411,6 +505,109 @@ function renderExpenseForm() {
     $('#expenseSubmitBtn').textContent = 'Gửi yêu cầu';
   }
 }
+
+// ---- Chia riêng số tiền từng người (thay vì chia đều) ----
+//
+// Mô hình: mỗi người có 1 phần "mua thêm riêng" (mặc định 0, để trống). Phần
+// còn lại của khoản chi — sau khi trừ hết các khoản mua thêm — tự CHIA ĐỀU
+// cho TẤT CẢ người được tick (kể cả người có mua thêm). Số cuối mỗi người =
+// phần chung + phần mua thêm riêng của họ.
+//
+// Nhờ vậy phủ được mọi trường hợp chỉ với 1 khoản chi:
+// - Không ai gõ gì -> y hệt chia đều như trước.
+// - Vài người có mua thêm riêng ngoài phần dùng chung -> gõ đúng phần thêm đó.
+// - Mỗi người mua hẳn đồ riêng, không có gì dùng chung -> gõ đủ số tiền của
+//   từng người (phần chung tự về 0, không ai bị chia thêm ngoài ý muốn).
+// Tổng luôn tự khớp đúng số tiền khoản chi — không cần validate lệch tổng.
+
+function getShareRows() {
+  return Array.from(document.querySelectorAll('#shareCheckboxes label'))
+    .map((label) => ({
+      cb: label.querySelector('input[type="checkbox"]'),
+      extraInput: label.querySelector('.share-amount-input'),
+      finalNote: label.querySelector('.share-final-note'),
+    }))
+    .filter((r) => r.cb && r.extraInput && r.finalNote);
+}
+
+// Tính phần chung (base) từ số tiền khoản chi và các phần mua thêm đã gõ.
+// remainder (đồng lẻ chia không hết) được dồn cho vài người đầu tiên trong
+// danh sách để tổng luôn khớp tuyệt đối.
+function computeShareBase() {
+  const amount = Math.round(Number($('#expenseAmount').value) || 0);
+  const rows = getShareRows();
+  const checkedRows = rows.filter((r) => r.cb.checked);
+  const extraSum = checkedRows.reduce((sum, r) => sum + (Math.round(Number(r.extraInput.value)) || 0), 0);
+  const remaining = amount - extraSum;
+  const n = checkedRows.length;
+  const valid = n > 0 && amount > 0 && remaining >= 0;
+  const base = valid ? Math.floor(remaining / n) : 0;
+  const remainder = valid ? remaining - base * n : 0;
+  return { amount, checkedRows, extraSum, remaining, n, valid, base, remainder };
+}
+
+// Trả về số cuối cùng của người thứ i (0-based, theo đúng thứ tự checkedRows
+// của computeShareBase) — dùng chung cho hiển thị và lúc build payload submit.
+function finalAmountAt(computed, i) {
+  const { checkedRows, base, remainder } = computed;
+  const extra = Math.round(Number(checkedRows[i].extraInput.value)) || 0;
+  return base + (i < remainder ? 1 : 0) + extra;
+}
+
+// Ẩn/hiện ô "mua thêm riêng" theo (đang bật chia riêng) && (người đó có được
+// tick). Ô nào vừa bị ẩn thì xoá sạch giá trị để lần bật lại sau không giữ số
+// cũ vô nghĩa.
+function syncShareAmountVisibility() {
+  const customMode = $('#shareCustomToggle').checked;
+  for (const { cb, extraInput, finalNote } of getShareRows()) {
+    const shouldShow = customMode && cb.checked;
+    extraInput.hidden = !shouldShow;
+    finalNote.hidden = !shouldShow;
+    if (!shouldShow) extraInput.value = '';
+  }
+}
+
+function updateShareFinalNotes() {
+  if (!$('#shareCustomToggle').checked) return;
+  const computed = computeShareBase();
+  computed.checkedRows.forEach((r, i) => {
+    r.finalNote.textContent = computed.valid ? `= ${fmtMoney(finalAmountAt(computed, i))}` : '';
+  });
+}
+
+function updateShareAmountsTotal() {
+  const box = $('#shareAmountsTotal');
+  if (!$('#shareCustomToggle').checked) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  const { amount, n, extraSum, valid, base } = computeShareBase();
+  if (n === 0) {
+    box.textContent = 'Chọn ít nhất 1 người để chia riêng.';
+    box.classList.remove('ok');
+    box.classList.add('mismatch');
+    return;
+  }
+  if (!valid) {
+    box.textContent = `Tổng mua thêm riêng (${fmtMoney(extraSum)}) đã vượt quá số tiền khoản chi (${fmtMoney(amount)}).`;
+    box.classList.remove('ok');
+    box.classList.add('mismatch');
+    return;
+  }
+  box.textContent = `Phần chung còn lại: ${fmtMoney(base)}/người (chia đều cho ${n} người)`;
+  box.classList.add('ok');
+  box.classList.remove('mismatch');
+}
+
+function refreshShareAmounts() {
+  syncShareAmountVisibility();
+  updateShareFinalNotes();
+  updateShareAmountsTotal();
+}
+
+$('#shareCustomToggle').addEventListener('change', refreshShareAmounts);
+$('#expenseAmount').addEventListener('input', refreshShareAmounts);
 
 // Nén ảnh bill xuống kích thước/dung lượng nhỏ ngay trên trình duyệt trước khi
 // gửi lên (Turso free tier có hạn dung lượng) — trả về data URL JPEG.
@@ -511,11 +708,13 @@ $('#expenseForm').addEventListener('paste', (ev) => {
 
 $('#checkAll').addEventListener('click', () => {
   $('#shareCheckboxes').dataset.touched = 'true';
-  document.querySelectorAll('#shareCheckboxes input').forEach((cb) => (cb.checked = true));
+  document.querySelectorAll('#shareCheckboxes input[type="checkbox"]').forEach((cb) => (cb.checked = true));
+  refreshShareAmounts();
 });
 $('#uncheckAll').addEventListener('click', () => {
   $('#shareCheckboxes').dataset.touched = 'true';
-  document.querySelectorAll('#shareCheckboxes input').forEach((cb) => (cb.checked = false));
+  document.querySelectorAll('#shareCheckboxes input[type="checkbox"]').forEach((cb) => (cb.checked = false));
+  refreshShareAmounts();
 });
 
 function resetExpenseForm() {
@@ -525,6 +724,7 @@ function resetExpenseForm() {
   $('#expenseAmount').value = '';
   $('#expenseDate').value = todayStr();
   $('#shareCheckboxes').dataset.touched = 'false';
+  $('#shareCustomToggle').checked = false;
   $('#expenseSubmitBtn').textContent = '+ Thêm khoản chi';
   $('#expenseCancelEdit').hidden = true;
   clearReceiptField();
@@ -537,16 +737,41 @@ $('#expenseForm').addEventListener(
   'submit',
   withGuard($('#expenseSubmitBtn'), async (ev) => {
     ev.preventDefault();
-    const shareMemberIds = Array.from(
-      document.querySelectorAll('#shareCheckboxes input:checked')
-    ).map((el) => el.value);
+    const amount = Number($('#expenseAmount').value);
+
+    let shareMemberIds;
+    let shareAmounts = null;
+    if ($('#shareCustomToggle').checked) {
+      const computed = computeShareBase();
+      if (computed.n === 0) {
+        showError('Chia riêng: vui lòng chọn ít nhất 1 người.');
+        return;
+      }
+      if (!computed.valid) {
+        showError(
+          `Chia riêng: tổng mua thêm riêng (${fmtMoney(computed.extraSum)}) đã vượt quá số tiền khoản chi (${fmtMoney(computed.amount)}).`
+        );
+        return;
+      }
+      shareMemberIds = [];
+      shareAmounts = {};
+      computed.checkedRows.forEach((r, i) => {
+        shareMemberIds.push(r.cb.value);
+        shareAmounts[r.cb.value] = finalAmountAt(computed, i);
+      });
+    } else {
+      shareMemberIds = Array.from(
+        document.querySelectorAll('#shareCheckboxes input[type="checkbox"]:checked')
+      ).map((el) => el.value);
+    }
 
     const payload = {
       date: $('#expenseDate').value,
       description: $('#expenseDesc').value.trim(),
-      amount: Number($('#expenseAmount').value),
+      amount,
       payerId: $('#expensePayer').value,
       shareMemberIds,
+      shareAmounts,
       receipt: currentReceipt,
     };
 
@@ -594,10 +819,21 @@ function startEditExpense(id) {
   $('#expenseAmount').value = Math.round(e.amount);
   $('#expensePayer').value = e.payerId;
   $('#shareCheckboxes').dataset.touched = 'true';
+  $('#shareCustomToggle').checked = !!e.shareAmounts;
   renderExpenseForm();
-  document.querySelectorAll('#shareCheckboxes input').forEach((cb) => {
+  document.querySelectorAll('#shareCheckboxes input[type="checkbox"]').forEach((cb) => {
     cb.checked = e.shareMemberIds.includes(cb.value);
   });
+  if (e.shareAmounts) {
+    // Nạp lại đúng số cuối đã lưu làm "mua thêm riêng" cho mọi người — phần
+    // chung tự tính về 0 (vì đã trừ hết), nên số cuối hiển thị vẫn khớp y hệt
+    // bản gốc. Sửa lại từ đây vẫn hoạt động bình thường như nhập mới.
+    document.querySelectorAll('#shareCheckboxes .share-amount-input').forEach((input) => {
+      const v = e.shareAmounts[input.dataset.member];
+      if (v !== undefined) input.value = Math.round(v);
+    });
+  }
+  refreshShareAmounts();
   if (e.receipt) {
     currentReceipt = e.receipt;
     showReceiptPreview(e.receipt);
@@ -611,19 +847,46 @@ function startEditExpense(id) {
 
 // ---- Bảng khoản chi ----
 
+function filterExpenses(list) {
+  const q = expenseFilters.q.trim().toLowerCase();
+  return list.filter((e) => {
+    if (q && !(e.description || '').toLowerCase().includes(q)) return false;
+    if (expenseFilters.payerId && e.payerId !== expenseFilters.payerId) return false;
+    if (expenseFilters.status && e.status !== expenseFilters.status) return false;
+    if (expenseFilters.from && e.date < expenseFilters.from) return false;
+    if (expenseFilters.to && e.date > expenseFilters.to) return false;
+    return true;
+  });
+}
+
 function renderExpenseTable() {
+  const payerSelect = $('#expenseFilterPayer');
+  populateMemberFilterSelect(payerSelect, expenseFilters.payerId, 'Tất cả người trả');
+
   const tbody = $('#expenseTableBody');
   tbody.innerHTML = '';
-  const sorted = [...state.expenses].sort((a, b) => (a.date < b.date ? 1 : -1));
+  const filtered = filterExpenses(state.expenses).sort((a, b) => (a.date < b.date ? 1 : -1));
 
-  if (sorted.length === 0) {
+  expensePage = renderPagination($('#expensePagination'), {
+    total: filtered.length,
+    page: expensePage,
+    pageSize: PAGE_SIZE,
+    onChange: (p) => {
+      expensePage = p;
+      renderExpenseTable();
+    },
+  });
+  const pageItems = filtered.slice((expensePage - 1) * PAGE_SIZE, expensePage * PAGE_SIZE);
+
+  if (pageItems.length === 0) {
     const tr = document.createElement('tr');
-    tr.innerHTML = '<td colspan="8" class="empty-msg">Chưa có khoản chi nào</td>';
+    const msg = state.expenses.length === 0 ? 'Chưa có khoản chi nào' : 'Không có khoản chi nào khớp bộ lọc';
+    tr.innerHTML = `<td colspan="8" class="empty-msg">${msg}</td>`;
     tbody.appendChild(tr);
     return;
   }
 
-  for (const e of sorted) {
+  for (const e of pageItems) {
     const tr = document.createElement('tr');
 
     const tdDate = document.createElement('td');
@@ -643,16 +906,47 @@ function renderExpenseTable() {
     const tdShare = document.createElement('td');
     tdShare.className = 'wrap';
     const shareCount = e.shareMemberIds.length;
-    const perAmount = shareCount > 0 ? e.amount / shareCount : 0;
-    const shareWrap = document.createElement('div');
-    shareWrap.className = 'share-chips';
-    for (const mid of e.shareMemberIds) {
-      const chip = document.createElement('span');
-      chip.className = 'share-chip';
-      chip.textContent = `${nameOf(mid)}: ${fmtMoney(perAmount)}`;
-      shareWrap.appendChild(chip);
+
+    if (e.shareAmounts) {
+      // Chia riêng — mỗi người 1 số tiền khác nhau nên phải liệt kê đủ.
+      const shareWrap = document.createElement('div');
+      shareWrap.className = 'share-chips';
+      for (const mid of e.shareMemberIds) {
+        const chip = document.createElement('span');
+        chip.className = 'share-chip';
+        chip.textContent = `${nameOf(mid)}: ${fmtMoney(e.shareAmounts[mid] || 0)}`;
+        shareWrap.appendChild(chip);
+      }
+      tdShare.appendChild(shareWrap);
+      const note = document.createElement('div');
+      note.className = 'share-per-amount';
+      note.textContent = 'Chia riêng';
+      tdShare.appendChild(note);
+    } else if (shareCount > 0 && shareCount === state.members.length) {
+      // Chia đều cho cả nhóm — khỏi liệt kê từng người, chỉ 1 dòng gọn.
+      const perAmount = e.amount / shareCount;
+      const summary = document.createElement('span');
+      summary.className = 'share-summary';
+      summary.textContent = `Cả nhóm (${shareCount}) · ${fmtMoney(perAmount)}/người`;
+      tdShare.appendChild(summary);
+    } else {
+      const perAmount = shareCount > 0 ? e.amount / shareCount : 0;
+      const shareWrap = document.createElement('div');
+      shareWrap.className = 'share-chips';
+      for (const mid of e.shareMemberIds) {
+        const chip = document.createElement('span');
+        chip.className = 'share-chip';
+        chip.textContent = nameOf(mid);
+        shareWrap.appendChild(chip);
+      }
+      tdShare.appendChild(shareWrap);
+      if (shareCount > 0) {
+        const perNote = document.createElement('div');
+        perNote.className = 'share-per-amount';
+        perNote.textContent = `${fmtMoney(perAmount)}/người`;
+        tdShare.appendChild(perNote);
+      }
     }
-    tdShare.appendChild(shareWrap);
 
     const tdBill = document.createElement('td');
     if (e.receipt) {
@@ -768,30 +1062,34 @@ function renderExpenseTable() {
 // ---- Tổng kết ----
 
 function renderSummary() {
-  const tbody = $('#summaryTableBody');
-  tbody.innerHTML = '';
+  const ul = $('#summaryList');
+  ul.innerHTML = '';
 
   if (state.summary.length === 0) {
-    const tr = document.createElement('tr');
-    tr.innerHTML = '<td colspan="4" class="empty-msg">Chưa có dữ liệu</td>';
-    tbody.appendChild(tr);
+    ul.innerHTML = '<li class="empty-msg">Chưa có dữ liệu</li>';
     return;
   }
 
   for (const s of state.summary) {
-    const tr = document.createElement('tr');
+    const li = document.createElement('li');
     const balClass = s.balance > 0 ? 'positive' : s.balance < 0 ? 'negative' : '';
-    tr.innerHTML = `
-      <td>${escapeHtml(s.name)}</td>
-      <td class="amount">${fmtMoney(s.totalPaid)}</td>
-      <td class="amount">${fmtMoney(s.totalOwed)}</td>
-      <td class="amount ${balClass}">${s.balance >= 0 ? '+' : ''}${fmtMoney(s.balance)}</td>
+    li.innerHTML = `
+      <div class="summary-row-top">
+        <span class="summary-name">${escapeHtml(s.name)}</span>
+        <span class="amount ${balClass}">${s.balance >= 0 ? '+' : ''}${fmtMoney(s.balance)}</span>
+      </div>
+      <div class="summary-row-sub">
+        Đã trả hộ ${fmtMoney(s.totalPaid)} · Phải chịu ${fmtMoney(s.totalOwed)}
+      </div>
     `;
-    tbody.appendChild(tr);
+    ul.appendChild(li);
   }
 }
 
 // ---- Ai nợ ai ----
+
+const DEBT_LIST_LIMIT = 6;
+let debtListExpanded = false;
 
 function renderDebts() {
   const ul = $('#debtList');
@@ -804,7 +1102,9 @@ function renderDebts() {
   }
   emptyMsg.hidden = true;
 
-  for (const d of state.debts) {
+  const visibleDebts = debtListExpanded ? state.debts : state.debts.slice(0, DEBT_LIST_LIMIT);
+
+  for (const d of visibleDebts) {
     const li = document.createElement('li');
 
     const text = document.createElement('span');
@@ -820,7 +1120,7 @@ function renderDebts() {
 
     const settleBtn = document.createElement('button');
     settleBtn.className = 'secondary';
-    settleBtn.textContent = state.isAdmin ? 'Ghi nhận đã trả' : 'Gửi yêu cầu đã trả';
+    settleBtn.textContent = state.isAdmin ? 'Ghi đã trả' : 'Báo đã trả';
     settleBtn.addEventListener(
       'click',
       withGuard(settleBtn, async () => {
@@ -861,23 +1161,64 @@ function renderDebts() {
 
     ul.appendChild(li);
   }
+
+  if (state.debts.length > DEBT_LIST_LIMIT) {
+    const li = document.createElement('li');
+    li.className = 'debt-toggle';
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'secondary';
+    toggleBtn.textContent = debtListExpanded ? 'Thu gọn' : `Xem thêm (${state.debts.length - DEBT_LIST_LIMIT})`;
+    toggleBtn.addEventListener('click', () => {
+      debtListExpanded = !debtListExpanded;
+      renderDebts();
+    });
+    li.appendChild(toggleBtn);
+    ul.appendChild(li);
+  }
 }
 
 // ---- Thanh toán ----
 
+function filterSettlements(list) {
+  return list.filter((s) => {
+    if (settlementFilters.fromId && s.fromId !== settlementFilters.fromId) return false;
+    if (settlementFilters.toId && s.toId !== settlementFilters.toId) return false;
+    if (settlementFilters.status && s.status !== settlementFilters.status) return false;
+    if (settlementFilters.from && s.date < settlementFilters.from) return false;
+    if (settlementFilters.to && s.date > settlementFilters.to) return false;
+    return true;
+  });
+}
+
 function renderSettlementTable() {
+  populateMemberFilterSelect($('#settlementFilterFromMember'), settlementFilters.fromId, 'Tất cả người trả nợ');
+  populateMemberFilterSelect($('#settlementFilterToMember'), settlementFilters.toId, 'Tất cả người nhận');
+
   const tbody = $('#settlementTableBody');
   tbody.innerHTML = '';
-  const sorted = [...state.settlements].sort((a, b) => (a.date < b.date ? 1 : -1));
+  const filtered = filterSettlements(state.settlements).sort((a, b) => (a.date < b.date ? 1 : -1));
 
-  if (sorted.length === 0) {
+  settlementPage = renderPagination($('#settlementPagination'), {
+    total: filtered.length,
+    page: settlementPage,
+    pageSize: PAGE_SIZE,
+    onChange: (p) => {
+      settlementPage = p;
+      renderSettlementTable();
+    },
+  });
+  const pageItems = filtered.slice((settlementPage - 1) * PAGE_SIZE, settlementPage * PAGE_SIZE);
+
+  if (pageItems.length === 0) {
     const tr = document.createElement('tr');
-    tr.innerHTML = '<td colspan="6" class="empty-msg">Chưa có thanh toán nào</td>';
+    const msg = state.settlements.length === 0 ? 'Chưa có thanh toán nào' : 'Không có thanh toán nào khớp bộ lọc';
+    tr.innerHTML = `<td colspan="6" class="empty-msg">${msg}</td>`;
     tbody.appendChild(tr);
     return;
   }
 
-  for (const s of sorted) {
+  for (const s of pageItems) {
     const tr = document.createElement('tr');
 
     const tdDate = document.createElement('td');
@@ -1059,5 +1400,78 @@ $('#billImageWrap').addEventListener(
     wrap.classList.remove('dragging');
   });
 })();
+
+// ---- Bộ lọc bảng khoản chi ----
+
+$('#expenseFilterQ').addEventListener('input', () => {
+  expenseFilters.q = $('#expenseFilterQ').value;
+  expensePage = 1;
+  renderExpenseTable();
+});
+$('#expenseFilterPayer').addEventListener('change', () => {
+  expenseFilters.payerId = $('#expenseFilterPayer').value;
+  expensePage = 1;
+  renderExpenseTable();
+});
+$('#expenseFilterStatus').addEventListener('change', () => {
+  expenseFilters.status = $('#expenseFilterStatus').value;
+  expensePage = 1;
+  renderExpenseTable();
+});
+$('#expenseFilterFrom').addEventListener('change', () => {
+  expenseFilters.from = $('#expenseFilterFrom').value;
+  expensePage = 1;
+  renderExpenseTable();
+});
+$('#expenseFilterTo').addEventListener('change', () => {
+  expenseFilters.to = $('#expenseFilterTo').value;
+  expensePage = 1;
+  renderExpenseTable();
+});
+$('#expenseFilterReset').addEventListener('click', () => {
+  expenseFilters = { q: '', payerId: '', status: '', from: '', to: '' };
+  expensePage = 1;
+  $('#expenseFilterQ').value = '';
+  $('#expenseFilterStatus').value = '';
+  $('#expenseFilterFrom').value = '';
+  $('#expenseFilterTo').value = '';
+  renderExpenseTable();
+});
+
+// ---- Bộ lọc bảng thanh toán ----
+
+$('#settlementFilterFromMember').addEventListener('change', () => {
+  settlementFilters.fromId = $('#settlementFilterFromMember').value;
+  settlementPage = 1;
+  renderSettlementTable();
+});
+$('#settlementFilterToMember').addEventListener('change', () => {
+  settlementFilters.toId = $('#settlementFilterToMember').value;
+  settlementPage = 1;
+  renderSettlementTable();
+});
+$('#settlementFilterStatus').addEventListener('change', () => {
+  settlementFilters.status = $('#settlementFilterStatus').value;
+  settlementPage = 1;
+  renderSettlementTable();
+});
+$('#settlementFilterFrom').addEventListener('change', () => {
+  settlementFilters.from = $('#settlementFilterFrom').value;
+  settlementPage = 1;
+  renderSettlementTable();
+});
+$('#settlementFilterTo').addEventListener('change', () => {
+  settlementFilters.to = $('#settlementFilterTo').value;
+  settlementPage = 1;
+  renderSettlementTable();
+});
+$('#settlementFilterReset').addEventListener('click', () => {
+  settlementFilters = { fromId: '', toId: '', status: '', from: '', to: '' };
+  settlementPage = 1;
+  $('#settlementFilterStatus').value = '';
+  $('#settlementFilterFrom').value = '';
+  $('#settlementFilterTo').value = '';
+  renderSettlementTable();
+});
 
 loadState().catch((e) => showError(e.message));

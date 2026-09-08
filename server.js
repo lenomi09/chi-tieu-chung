@@ -117,6 +117,48 @@ app.delete(
 
 // ---- Khoản chi ----
 
+// Chia riêng từng người (thay vì chia đều): shareAmounts là { memberId: số tiền }.
+// Không bắt buộc — không gửi (hoặc gửi rỗng) thì coi như chia đều như cũ.
+function validateShareAmounts(shareAmounts, validShareIds, amount) {
+  if (shareAmounts === undefined || shareAmounts === null) return null;
+  if (typeof shareAmounts !== 'object' || Array.isArray(shareAmounts)) {
+    return 'Dữ liệu chia riêng không hợp lệ';
+  }
+  const keys = Object.keys(shareAmounts);
+  if (keys.length === 0) return null;
+
+  const sameSet = keys.length === validShareIds.length && validShareIds.every((id) => keys.includes(id));
+  if (!sameSet) {
+    return 'Danh sách chia riêng phải khớp đúng với danh sách người được chọn ở trên';
+  }
+
+  let sum = 0;
+  for (const id of keys) {
+    const v = Number(shareAmounts[id]);
+    if (!Number.isFinite(v) || v <= 0) {
+      return 'Số tiền chia riêng cho mỗi người phải lớn hơn 0';
+    }
+    sum += v;
+  }
+  if (Math.round(sum) !== Math.round(amount)) {
+    return 'Tổng số tiền chia riêng phải bằng đúng số tiền khoản chi';
+  }
+  return null;
+}
+
+// Đã validate hợp lệ (hoặc null) ở validateShareAmounts rồi — hàm này chỉ chuẩn
+// hoá về dạng lưu DB: null nếu không chia riêng, object số nguyên nếu có.
+function normalizeShareAmounts(shareAmounts) {
+  if (!shareAmounts || typeof shareAmounts !== 'object' || Object.keys(shareAmounts).length === 0) {
+    return null;
+  }
+  const out = {};
+  for (const [id, v] of Object.entries(shareAmounts)) {
+    out[id] = Math.round(Number(v));
+  }
+  return out;
+}
+
 function validateExpenseInput(body, members) {
   const amount = Number(body.amount);
   if (!Number.isFinite(amount) || amount <= 0) {
@@ -133,7 +175,7 @@ function validateExpenseInput(body, members) {
   if (!body.date) {
     return 'Vui lòng chọn ngày';
   }
-  return null;
+  return validateShareAmounts(body.shareAmounts, validShareIds, amount);
 }
 
 const MAX_RECEIPT_LENGTH = 4 * 1024 * 1024; // ~4MB chuỗi base64
@@ -163,6 +205,7 @@ app.post(
       amount: Math.round(Number(req.body.amount)),
       payerId: req.body.payerId,
       shareMemberIds: req.body.shareMemberIds.filter((id) => members.some((m) => m.id === id)),
+      shareAmounts: normalizeShareAmounts(req.body.shareAmounts),
       status: 'approved',
       receipt: req.body.receipt || null,
     });
@@ -185,6 +228,7 @@ app.post(
       amount: Math.round(Number(req.body.amount)),
       payerId: req.body.payerId,
       shareMemberIds: req.body.shareMemberIds.filter((id) => members.some((m) => m.id === id)),
+      shareAmounts: normalizeShareAmounts(req.body.shareAmounts),
       status: 'pending',
       receipt: req.body.receipt || null,
     });
@@ -231,6 +275,7 @@ app.put(
       amount: Math.round(Number(req.body.amount)),
       payerId: req.body.payerId,
       shareMemberIds: req.body.shareMemberIds.filter((id) => members.some((m) => m.id === id)),
+      shareAmounts: normalizeShareAmounts(req.body.shareAmounts),
       receipt: req.body.receipt || null,
     });
     res.json(await buildState(req));

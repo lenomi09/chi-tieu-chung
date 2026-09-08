@@ -211,3 +211,64 @@ test('ảnh bill: lưu và đọc lại đúng, sửa khoản chi không kèm �
   });
   assert.equal(invalid.status, 400);
 });
+
+test('chia riêng số tiền (shareAmounts): lưu đúng, tính đúng số dư, và bị từ chối nếu tổng sai', async () => {
+  const { cookie } = await api('/api/login', { method: 'POST', body: { password: 'test-password' } });
+  const addMember = async (name) => {
+    const r = await api('/api/members', { method: 'POST', cookie, body: { name } });
+    return r.data.members.find((m) => m.name === name).id;
+  };
+  const binh = await addMember('Bình');
+  const chi = await addMember('Chi');
+  const dung = await addMember('Dũng');
+
+  // Bình trả 150.000đ hộ cả 3, nhưng mỗi người mua đồ khác giá -> chia riêng.
+  const created = await api('/api/expenses', {
+    method: 'POST',
+    cookie,
+    body: {
+      date: '2026-09-08',
+      amount: 150000,
+      payerId: binh,
+      shareMemberIds: [binh, chi, dung],
+      shareAmounts: { [binh]: 50000, [chi]: 30000, [dung]: 70000 },
+    },
+  });
+  assert.equal(created.status, 200);
+  const saved = created.data.expenses.find((e) => e.payerId === binh && e.amount === 150000);
+  assert.deepEqual(saved.shareAmounts, { [binh]: 50000, [chi]: 30000, [dung]: 70000 });
+
+  const balanceOf = (state, id) => state.summary.find((s) => s.id === id).balance;
+  const state = (await api('/api/state')).data;
+  assert.equal(balanceOf(state, chi), -30000);
+  assert.equal(balanceOf(state, dung), -70000);
+  assert.equal(balanceOf(state, binh), 100000);
+
+  // Tổng chia riêng (30.000 + 70.000 = 100.000) không khớp amount (100.000) — thử sai để chắc bị chặn.
+  const mismatched = await api('/api/expenses', {
+    method: 'POST',
+    cookie,
+    body: {
+      date: '2026-09-08',
+      amount: 100000,
+      payerId: binh,
+      shareMemberIds: [chi, dung],
+      shareAmounts: { [chi]: 30000, [dung]: 60000 },
+    },
+  });
+  assert.equal(mismatched.status, 400);
+
+  // shareAmounts không khớp danh sách người được tick -> cũng bị chặn.
+  const mismatchedMembers = await api('/api/expenses', {
+    method: 'POST',
+    cookie,
+    body: {
+      date: '2026-09-08',
+      amount: 100000,
+      payerId: binh,
+      shareMemberIds: [chi, dung],
+      shareAmounts: { [chi]: 100000 },
+    },
+  });
+  assert.equal(mismatchedMembers.status, 400);
+});
