@@ -5,12 +5,48 @@ let editingExpenseId = null;
 let currentReceipt = null; // data URL ảnh bill đang gắn với form khoản chi (null = không có)
 
 const PAGE_SIZE = 5;
-let expenseFilters = { q: '', payerId: '', status: '', from: '', to: '' };
+let expenseFilters = { q: '', payerId: '', shareMemberId: '', status: '', from: '', to: '' };
 let expensePage = 1;
 let settlementFilters = { fromId: '', toId: '', status: '', from: '', to: '' };
 let settlementPage = 1;
 
 const $ = (sel) => document.querySelector(sel);
+
+// ---- Giao diện sáng/tối ----
+// Mặc định theo hệ thống (prefers-color-scheme). Bấm nút thì ghi đè bằng
+// thuộc tính data-theme trên <html> + lưu localStorage để lần sau mở lại
+// vẫn giữ đúng lựa chọn (index.html đã có script nhỏ áp lại giá trị này
+// ngay từ đầu để tránh nhấp nháy sáng rồi mới chuyển tối lúc tải trang).
+const THEME_STORAGE_KEY = 'chi-tieu-chung-theme';
+
+function isDarkActive() {
+  const explicit = document.documentElement.getAttribute('data-theme');
+  if (explicit === 'dark') return true;
+  if (explicit === 'light') return false;
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+function renderThemeToggle() {
+  const btn = $('#themeToggleBtn');
+  if (!btn) return;
+  const dark = isDarkActive();
+  btn.textContent = dark ? '☀️' : '🌙';
+  btn.title = dark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối';
+}
+
+$('#themeToggleBtn').addEventListener('click', () => {
+  const next = isDarkActive() ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, next);
+  } catch (e) {
+    // Trình duyệt chặn localStorage (chế độ ẩn danh...) — vẫn đổi giao diện
+    // được cho phiên hiện tại, chỉ là không nhớ được cho lần sau.
+  }
+  renderThemeToggle();
+});
+
+renderThemeToggle();
 
 const STATUS_LABEL = {
   pending: 'Chờ duyệt',
@@ -29,6 +65,15 @@ function nameOf(id) {
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
+}
+
+// So sánh ngày mới nhất lên trước. Bắt buộc trả về 0 khi bằng nhau — nếu
+// không, Array.sort mất tính ổn định với các phần tử cùng ngày (rất hay gặp)
+// và có thể xáo trộn thứ tự thay vì giữ đúng "mới thêm/sửa gần nhất trước".
+function byDateNewestFirst(a, b) {
+  if (a.date < b.date) return 1;
+  if (a.date > b.date) return -1;
+  return 0;
 }
 
 // Render thanh phân trang dùng chung cho bảng khoản chi và bảng thanh toán.
@@ -793,7 +838,10 @@ $('#expenseForm').addEventListener(
         const endpoint = wasAdmin ? '/api/expenses' : '/api/expense-requests';
         await optimisticMutate(
           () => {
-            state.expenses.push({ id: tempId, ...payload, status: wasAdmin ? 'approved' : 'pending' });
+            // unshift (không phải push) để khoản vừa thêm hiện ngay ở đầu danh
+            // sách trong lúc chờ server phản hồi, khớp với thứ tự "mới nhất
+            // lên đầu" thay vì phải đợi tải lại mới đúng vị trí.
+            state.expenses.unshift({ id: tempId, ...payload, status: wasAdmin ? 'approved' : 'pending' });
           },
           () => api(endpoint, { method: 'POST', body: JSON.stringify(payload) })
         );
@@ -852,6 +900,7 @@ function filterExpenses(list) {
   return list.filter((e) => {
     if (q && !(e.description || '').toLowerCase().includes(q)) return false;
     if (expenseFilters.payerId && e.payerId !== expenseFilters.payerId) return false;
+    if (expenseFilters.shareMemberId && !e.shareMemberIds.includes(expenseFilters.shareMemberId)) return false;
     if (expenseFilters.status && e.status !== expenseFilters.status) return false;
     if (expenseFilters.from && e.date < expenseFilters.from) return false;
     if (expenseFilters.to && e.date > expenseFilters.to) return false;
@@ -862,10 +911,12 @@ function filterExpenses(list) {
 function renderExpenseTable() {
   const payerSelect = $('#expenseFilterPayer');
   populateMemberFilterSelect(payerSelect, expenseFilters.payerId, 'Tất cả người trả');
+  const shareMemberSelect = $('#expenseFilterShareMember');
+  populateMemberFilterSelect(shareMemberSelect, expenseFilters.shareMemberId, 'Tất cả người chia cho');
 
   const tbody = $('#expenseTableBody');
   tbody.innerHTML = '';
-  const filtered = filterExpenses(state.expenses).sort((a, b) => (a.date < b.date ? 1 : -1));
+  const filtered = filterExpenses(state.expenses).sort(byDateNewestFirst);
 
   expensePage = renderPagination($('#expensePagination'), {
     total: filtered.length,
@@ -1139,7 +1190,7 @@ function renderDebts() {
           clearError();
           await optimisticMutate(
             () => {
-              state.settlements.push({ id: `temp-${Date.now()}`, fromId: d.fromId, toId: d.toId, amount, date, status });
+              state.settlements.unshift({ id: `temp-${Date.now()}`, fromId: d.fromId, toId: d.toId, amount, date, status });
             },
             () =>
               api(endpoint, {
@@ -1197,7 +1248,7 @@ function renderSettlementTable() {
 
   const tbody = $('#settlementTableBody');
   tbody.innerHTML = '';
-  const filtered = filterSettlements(state.settlements).sort((a, b) => (a.date < b.date ? 1 : -1));
+  const filtered = filterSettlements(state.settlements).sort(byDateNewestFirst);
 
   settlementPage = renderPagination($('#settlementPagination'), {
     total: filtered.length,
@@ -1413,6 +1464,11 @@ $('#expenseFilterPayer').addEventListener('change', () => {
   expensePage = 1;
   renderExpenseTable();
 });
+$('#expenseFilterShareMember').addEventListener('change', () => {
+  expenseFilters.shareMemberId = $('#expenseFilterShareMember').value;
+  expensePage = 1;
+  renderExpenseTable();
+});
 $('#expenseFilterStatus').addEventListener('change', () => {
   expenseFilters.status = $('#expenseFilterStatus').value;
   expensePage = 1;
@@ -1429,7 +1485,7 @@ $('#expenseFilterTo').addEventListener('change', () => {
   renderExpenseTable();
 });
 $('#expenseFilterReset').addEventListener('click', () => {
-  expenseFilters = { q: '', payerId: '', status: '', from: '', to: '' };
+  expenseFilters = { q: '', payerId: '', shareMemberId: '', status: '', from: '', to: '' };
   expensePage = 1;
   $('#expenseFilterQ').value = '';
   $('#expenseFilterStatus').value = '';

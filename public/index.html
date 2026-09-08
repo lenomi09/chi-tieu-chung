@@ -4,6 +4,18 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Chi tiêu chung</title>
+  <script>
+    // Áp lại giao diện sáng/tối đã lưu NGAY LẬP TỨC, trước khi trang vẽ ra —
+    // để tránh nhấp nháy sáng rồi mới chuyển tối (FOUC) lúc tải trang.
+    (function () {
+      try {
+        var saved = localStorage.getItem('chi-tieu-chung-theme');
+        if (saved === 'dark' || saved === 'light') {
+          document.documentElement.setAttribute('data-theme', saved);
+        }
+      } catch (e) {}
+    })();
+  </script>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -11,9 +23,18 @@
     <h1>💰 Chi tiêu chung</h1>
     <p class="sub">Ghi chép và chia tiền chi tiêu chung trong nhóm</p>
     <div class="auth-box">
+      <button type="button" id="themeToggleBtn" class="secondary theme-toggle-btn" title="Đổi giao diện sáng/tối"></button>
       <span id="authStatus" class="auth-status"></span>
       <button type="button" id="loginBtn" class="secondary">Đăng nhập admin</button>
       <button type="button" id="logoutBtn" class="secondary" hidden>Đăng xuất</button>
+      <button
+        type="button"
+        id="resetAllBtn"
+        class="danger-corner-btn admin-only"
+        hidden
+        title="Xoá sạch khoản chi và lịch sử thanh toán (không thể hoàn tác, thành viên vẫn được giữ)"
+        aria-label="Xoá sạch dữ liệu"
+      >🗑️</button>
     </div>
   </header>
 
@@ -172,6 +193,7 @@
       <div id="expenseFilterBar" class="filter-bar">
         <input type="text" id="expenseFilterQ" placeholder="Tìm theo nội dung..." />
         <select id="expenseFilterPayer"></select>
+        <select id="expenseFilterShareMember"></select>
         <select id="expenseFilterStatus">
           <option value="">Tất cả trạng thái</option>
           <option value="pending">Chờ duyệt</option>
@@ -238,15 +260,6 @@
       </div>
     </div>
 
-    <!-- Xoá sạch dữ liệu -->
-    <section id="dangerZoneSection" class="card danger-zone admin-only" hidden>
-      <h2>Xoá sạch dữ liệu</h2>
-      <p class="sub">
-        Xoá toàn bộ <b>khoản chi</b> và <b>lịch sử thanh toán</b> —
-        <b>không thể hoàn tác</b>. Thành viên vẫn được giữ.
-      </p>
-      <button type="button" id="resetAllBtn" class="danger">Xoá sạch dữ liệu</button>
-    </section>
   </main>
 
   <script src="/calc.js"></script>

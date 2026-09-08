@@ -1,5 +1,5 @@
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
   --bg: #f4f6f8;
   --card-bg: #ffffff;
   --border: #dfe3e8;
@@ -12,6 +12,77 @@
   --positive: #16a34a;
   --negative: #dc2626;
   --radius: 8px;
+
+  /* Các "mặt phẳng" phụ (chip, hover, ô nhập...) trước đây ghi cứng nhiều mã
+     màu xám gần giống nhau rải khắp file — gom về đây để dark mode chỉ cần
+     đổi giá trị biến, không phải sửa từng chỗ. */
+  --surface-2: #f3f4f6;
+  --chip-bg: #eef2f7;
+  --accent-soft: #eff6ff;
+  --input-bg: #ffffff;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"],
+body[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14171c;
+    --card-bg: #1c2028;
+    --border: #323844;
+    --text: #e5e7eb;
+    --text-muted: #9aa3b2;
+    --primary: #3b82f6;
+    --primary-hover: #60a5fa;
+    --danger: #ef4444;
+    --danger-hover: #f87171;
+    --positive: #4ade80;
+    --negative: #f87171;
+    --surface-2: #242933;
+    --chip-bg: #262c38;
+    --accent-soft: #1e2a3f;
+    --input-bg: #1a1e26;
+    --badge-pending-bg: rgba(251, 191, 36, 0.16);
+    --badge-pending-text: #fbbf24;
+    --badge-approved-bg: rgba(74, 222, 128, 0.16);
+    --badge-approved-text: #4ade80;
+    --badge-rejected-bg: rgba(248, 113, 113, 0.16);
+    --badge-rejected-text: #f87171;
+    --error-box-bg: rgba(239, 68, 68, 0.12);
+    --error-box-border: rgba(239, 68, 68, 0.4);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #14171c;
+  --card-bg: #1c2028;
+  --border: #323844;
+  --text: #e5e7eb;
+  --text-muted: #9aa3b2;
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --danger: #ef4444;
+  --danger-hover: #f87171;
+  --positive: #4ade80;
+  --negative: #f87171;
+  --surface-2: #242933;
+  --chip-bg: #262c38;
+  --accent-soft: #1e2a3f;
+  --input-bg: #1a1e26;
+  --badge-pending-bg: rgba(251, 191, 36, 0.16);
+  --badge-pending-text: #fbbf24;
+  --badge-approved-bg: rgba(74, 222, 128, 0.16);
+  --badge-approved-text: #4ade80;
+  --badge-rejected-bg: rgba(248, 113, 113, 0.16);
+  --badge-rejected-text: #f87171;
+  --error-box-bg: rgba(239, 68, 68, 0.12);
+  --error-box-border: rgba(239, 68, 68, 0.4);
 }
 
 * {
@@ -30,12 +101,39 @@ header {
   text-align: center;
 }
 
+.danger-corner-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+/* display chỉ áp khi KHÔNG có [hidden] — nếu ghi thẳng vào .danger-corner-btn
+   thì nó đè luôn hành vi ẩn của [hidden], khiến nút xoá hiện sẵn dù chưa
+   đăng nhập admin (đã xảy ra với .receipt-preview-wrap trước đó, cùng lỗi). */
+.danger-corner-btn:not([hidden]) {
+  display: inline-flex;
+}
+
+.danger-corner-btn:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
 .app-dialog {
   border: none;
   border-radius: 12px;
   padding: 0;
   min-width: 320px;
   max-width: 90vw;
+  background: var(--card-bg);
+  color: var(--text);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
 }
 
@@ -146,6 +244,17 @@ header h1 {
   font-size: 13px;
 }
 
+.theme-toggle-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  border-radius: 999px;
+}
+
 .auth-status {
   color: var(--text-muted);
 }
@@ -164,18 +273,18 @@ header h1 {
 }
 
 .status-badge.pending {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--badge-pending-bg, #fef3c7);
+  color: var(--badge-pending-text, #92400e);
 }
 
 .status-badge.approved {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--badge-approved-bg, #dcfce7);
+  color: var(--badge-approved-text, #166534);
 }
 
 .status-badge.rejected {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--badge-rejected-bg, #fee2e2);
+  color: var(--badge-rejected-text, #991b1b);
 }
 
 main {
@@ -239,15 +348,15 @@ main {
 }
 
 .error-box {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: var(--error-box-bg, #fef2f2);
+  border: 1px solid var(--error-box-border, #fecaca);
   color: var(--danger);
   padding: 10px 14px;
   border-radius: var(--radius);
   font-size: 14px;
 }
 
-.inline-form {
+.inline-form:not([hidden]) {
   display: flex;
   gap: 8px;
   margin-bottom: 12px;
@@ -263,7 +372,7 @@ input, select, button {
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #fff;
+  background: var(--input-bg);
   color: var(--text);
 }
 
@@ -282,14 +391,14 @@ button:hover {
 }
 
 button.secondary {
-  background: #fff;
+  background: var(--input-bg);
   color: var(--text);
   border-color: var(--border);
   font-weight: 500;
 }
 
 button.secondary:hover {
-  background: #f3f4f6;
+  background: var(--surface-2);
 }
 
 button.danger {
@@ -315,7 +424,7 @@ button.danger:hover {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #f3f4f6;
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 4px 6px 4px 12px;
@@ -416,7 +525,7 @@ button.danger:hover {
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #fafafa;
+  background: var(--surface-2);
 }
 
 .share-checkboxes label {
@@ -521,7 +630,7 @@ button.danger:hover {
 
 .share-chip {
   display: inline-block;
-  background: #eef2f7;
+  background: var(--chip-bg);
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 2px 6px;
@@ -548,7 +657,7 @@ td.wrap {
 }
 
 tbody tr:hover {
-  background: #f9fafb;
+  background: var(--surface-2);
 }
 
 .amount {
@@ -584,7 +693,7 @@ tbody tr:hover {
 }
 
 .summary-list li {
-  background: #f9fafb;
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 8px 12px;
@@ -660,17 +769,6 @@ tbody tr:hover {
   font-size: 14px;
 }
 
-.danger-zone {
-  border-color: #fecaca;
-  background: #fff5f5;
-}
-
-.danger-zone .sub {
-  text-align: left;
-  font-size: 13px;
-  margin: 0 0 12px;
-}
-
 .receipt-field {
   display: flex;
   align-items: center;
@@ -687,7 +785,7 @@ tbody tr:hover {
   padding: 10px 14px;
   border: 1.5px dashed var(--border);
   border-radius: 10px;
-  background: #fafafa;
+  background: var(--surface-2);
   text-align: left;
   cursor: pointer;
   flex: 1 1 220px;
@@ -698,7 +796,7 @@ tbody tr:hover {
 .receipt-dropzone:focus-visible,
 .receipt-dropzone.drag-over {
   border-color: var(--primary);
-  background: #eff6ff;
+  background: var(--accent-soft);
   outline: none;
 }
 
