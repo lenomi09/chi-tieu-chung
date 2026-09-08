@@ -472,16 +472,17 @@ tbody tr:hover {
 
 .receipt-dropzone {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 14px 16px;
+  justify-content: center;
+  gap: 6px;
+  padding: 26px 16px;
   border: 1.5px dashed var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   background: #fafafa;
-  color: var(--text-muted);
-  font-size: 13px;
+  text-align: center;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
 }
 
 .receipt-dropzone:hover,
@@ -491,9 +492,31 @@ tbody tr:hover {
   outline: none;
 }
 
+.receipt-dropzone:active {
+  transform: scale(0.99);
+}
+
 .receipt-dropzone-icon {
-  font-size: 20px;
+  font-size: 26px;
   line-height: 1;
+  opacity: 0.8;
+}
+
+.receipt-dropzone-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.receipt-dropzone-text strong {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.receipt-dropzone-text span {
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .receipt-preview-wrap {
@@ -536,11 +559,11 @@ tbody tr:hover {
   width: min(90vw, 900px);
   height: min(85vh, 700px);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
-  background: #111827;
+  background: var(--card-bg);
 }
 
 .bill-dialog::backdrop {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(15, 23, 42, 0.45);
   backdrop-filter: blur(2px);
 }
 
@@ -549,7 +572,8 @@ tbody tr:hover {
   justify-content: flex-end;
   gap: 6px;
   padding: 10px;
-  background: #1f2937;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
 }
 
 .bill-dialog-toolbar button {
@@ -557,11 +581,16 @@ tbody tr:hover {
 }
 
 .bill-image-wrap {
-  height: calc(100% - 52px);
+  height: calc(100% - 53px);
   overflow: auto;
+  background: var(--bg);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  /* "safe center" tránh lỗi CSS kinh điển: flex align/justify-content: center
+     kết hợp overflow:auto sẽ chặn không cho kéo/cuộn vào phần bị tràn ở phía
+     "trước" tâm — khi ảnh to hơn khung, "safe" tự chuyển về căn đầu để vẫn
+     kéo/cuộn được đủ mọi hướng; khi ảnh nhỏ hơn khung thì vẫn canh giữa bình thường. */
+  align-items: safe center;
+  justify-content: safe center;
   cursor: grab;
 }
 
