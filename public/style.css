@@ -564,6 +564,9 @@ button.danger:hover {
 
 .filter-bar select {
   min-width: 128px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .filter-bar button {
@@ -932,9 +935,36 @@ tbody tr:hover {
   .form-row label.grow {
     min-width: unset;
   }
+  /* Bộ lọc trên mobile: lưới 2 cột thay vì xếp thẳng hàng dọc (trước đó mỗi ô
+     chiếm 1 dòng riêng, cuộn rất dài trước khi thấy được dữ liệu). Ô tìm kiếm
+     và nút "Xoá lọc" chiếm trọn hàng, các dropdown/ngày ghép cặp 2 ô/hàng. */
   .filter-bar {
-    flex-direction: column;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .filter-bar input[type="text"] {
+    grid-column: 1 / -1;
+    /* Base rule dùng flex: 1 1 160px — trong flex-direction:column thì 160px
+       bị hiểu thành CHIỀU CAO thay vì rộng, làm ô này cao bất thường. Reset
+       lại vì ở đây đã chuyển sang grid, không còn dùng flex nữa. */
+    flex: initial;
+    width: 100%;
+  }
+  .filter-bar select {
+    min-width: 0;
+    width: 100%;
+  }
+  .filter-date-label {
+    width: 100%;
+  }
+  .filter-date-label input[type="date"] {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+  }
+  .filter-bar button {
+    grid-column: 1 / -1;
   }
   .pagination {
     flex-direction: column;

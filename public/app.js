@@ -912,7 +912,7 @@ function renderExpenseTable() {
   const payerSelect = $('#expenseFilterPayer');
   populateMemberFilterSelect(payerSelect, expenseFilters.payerId, 'Tất cả người trả');
   const shareMemberSelect = $('#expenseFilterShareMember');
-  populateMemberFilterSelect(shareMemberSelect, expenseFilters.shareMemberId, 'Tất cả người chia cho');
+  populateMemberFilterSelect(shareMemberSelect, expenseFilters.shareMemberId, 'Tất cả người chia');
 
   const tbody = $('#expenseTableBody');
   tbody.innerHTML = '';
