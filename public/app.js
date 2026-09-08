@@ -491,7 +491,7 @@ function renderExpenseForm() {
   const previouslyChecked = new Set(
     Array.from(shareBox.querySelectorAll('input[type="checkbox"]:checked')).map((el) => el.value)
   );
-  const previousExtras = new Map(
+  const previousAmounts = new Map(
     Array.from(shareBox.querySelectorAll('.share-amount-input')).map((el) => [el.dataset.member, el.value])
   );
   const isFreshForm = editingExpenseId === null && previouslyChecked.size === 0 && shareBox.dataset.touched !== 'true';
@@ -509,25 +509,24 @@ function renderExpenseForm() {
       refreshShareAmounts();
     });
 
-    // Ô này chỉ nhập phần MUA THÊM RIÊNG của người đó (để trống = không mua
-    // thêm gì). Phần chung còn lại sau khi trừ hết các khoản mua thêm sẽ tự
-    // chia đều cho tất cả người được tick — khỏi phải tự tính nhẩm.
-    // Dùng type="text" (không phải "number") để cho gõ được nhiều món cộng
-    // dồn kiểu "15000+20000+8000" — parseSumExpression() sẽ tự cộng lại,
-    // khỏi phải bấm máy tính rồi mới điền 1 số duy nhất vào đây.
-    const extraInput = document.createElement('input');
-    extraInput.type = 'text';
-    extraInput.inputMode = 'decimal';
-    extraInput.className = 'share-amount-input';
-    extraInput.placeholder = '+ riêng';
-    extraInput.title =
-      'Số tiền người này mua thêm riêng, ngoài phần chia đều chung (để trống nếu không có). ' +
+    // Ô này gõ đúng SỐ TIỀN CUỐI CÙNG người đó phải trả cho khoản chi này
+    // (không phải "chia đều + thêm riêng" nữa). App chỉ cộng tổng các ô đã
+    // tick lại và so với "Số tiền" — báo thừa/thiếu, không tự chia hộ gì cả.
+    // Dùng type="text" để vẫn gõ được nhiều món cộng dồn trong 1 ô, vd
+    // "15000+20000+8000" — parseSumExpression() tự cộng lại thành số cuối.
+    const amountInput = document.createElement('input');
+    amountInput.type = 'text';
+    amountInput.inputMode = 'decimal';
+    amountInput.className = 'share-amount-input';
+    amountInput.placeholder = 'Số tiền';
+    amountInput.title =
+      'Số tiền cuối cùng người này phải trả cho khoản chi này. ' +
       'Gõ được nhiều món cộng dồn, vd: 15000+20000+8000 — tự cộng lại, khỏi cần tính tay.';
-    extraInput.dataset.member = m.id;
-    if (previousExtras.has(m.id)) extraInput.value = previousExtras.get(m.id);
-    extraInput.hidden = !customMode || !cb.checked;
-    extraInput.addEventListener('input', refreshShareAmounts);
-    extraInput.addEventListener('click', (ev) => ev.stopPropagation());
+    amountInput.dataset.member = m.id;
+    if (previousAmounts.has(m.id)) amountInput.value = previousAmounts.get(m.id);
+    amountInput.hidden = !customMode || !cb.checked;
+    amountInput.addEventListener('input', refreshShareAmounts);
+    amountInput.addEventListener('click', (ev) => ev.stopPropagation());
 
     const finalNote = document.createElement('span');
     finalNote.className = 'share-final-note';
@@ -536,7 +535,7 @@ function renderExpenseForm() {
 
     label.appendChild(cb);
     label.appendChild(document.createTextNode(m.name));
-    label.appendChild(extraInput);
+    label.appendChild(amountInput);
     label.appendChild(finalNote);
     shareBox.appendChild(label);
   }
@@ -557,24 +556,18 @@ function renderExpenseForm() {
 
 // ---- Chia riêng số tiền từng người (thay vì chia đều) ----
 //
-// Mô hình: mỗi người có 1 phần "mua thêm riêng" (mặc định 0, để trống). Phần
-// còn lại của khoản chi — sau khi trừ hết các khoản mua thêm — tự CHIA ĐỀU
-// cho TẤT CẢ người được tick (kể cả người có mua thêm). Số cuối mỗi người =
-// phần chung + phần mua thêm riêng của họ.
-//
-// Nhờ vậy phủ được mọi trường hợp chỉ với 1 khoản chi:
-// - Không ai gõ gì -> y hệt chia đều như trước.
-// - Vài người có mua thêm riêng ngoài phần dùng chung -> gõ đúng phần thêm đó.
-// - Mỗi người mua hẳn đồ riêng, không có gì dùng chung -> gõ đủ số tiền của
-//   từng người (phần chung tự về 0, không ai bị chia thêm ngoài ý muốn).
-// Tổng luôn tự khớp đúng số tiền khoản chi — không cần validate lệch tổng.
+// Mô hình: mỗi người tick gõ đúng SỐ TIỀN CUỐI CÙNG họ phải trả cho khoản chi
+// này. App không tự chia hộ phần gì cả — chỉ cộng tổng các ô lại, so với "Số
+// tiền" của khoản chi, rồi báo khớp hay thừa/thiếu bao nhiêu. Người dùng tự
+// quyết định số của từng người (kể cả tính nhẩm sao cho đúng), app chỉ kiểm
+// tra hộ cho khỏi ghi nhầm.
 
-// Cho phép gõ nhiều món cộng (trừ) dồn vào ô "mua thêm riêng", vd:
-// "15000+20000+8000" hoặc "20000-5000" (được giảm giá) — tự cộng lại thay vì
-// bắt người dùng tính tay rồi mới điền 1 số. Cố tình KHÔNG dùng eval() — chỉ
-// nhận số, dấu +/-, dấu chấm/phẩy và khoảng trắng, không có gì khác được thực
-// thi. Chuỗi rỗng -> 0. Chuỗi không hợp lệ (có chữ...) -> NaN (nơi gọi tự coi
-// NaN như 0 vì "NaN || 0" === 0).
+// Cho phép gõ nhiều món cộng (trừ) dồn vào 1 ô, vd "15000+20000+8000" hoặc
+// "20000-5000" (được giảm giá) — tự cộng lại thay vì bắt người dùng tính tay
+// rồi mới điền 1 số. Cố tình KHÔNG dùng eval() — chỉ nhận số, dấu +/-, dấu
+// chấm/phẩy và khoảng trắng, không có gì khác được thực thi. Chuỗi rỗng -> 0.
+// Chuỗi không hợp lệ (có chữ...) -> NaN (nơi gọi tự coi NaN như 0 vì
+// "NaN || 0" === 0).
 function parseSumExpression(raw) {
   const str = String(raw ?? '').trim();
   if (str === '') return 0;
@@ -588,55 +581,44 @@ function getShareRows() {
   return Array.from(document.querySelectorAll('#shareCheckboxes label'))
     .map((label) => ({
       cb: label.querySelector('input[type="checkbox"]'),
-      extraInput: label.querySelector('.share-amount-input'),
+      amountInput: label.querySelector('.share-amount-input'),
       finalNote: label.querySelector('.share-final-note'),
     }))
-    .filter((r) => r.cb && r.extraInput && r.finalNote);
+    .filter((r) => r.cb && r.amountInput && r.finalNote);
 }
 
-// Tính phần chung (base) từ số tiền khoản chi và các phần mua thêm đã gõ.
-// remainder (đồng lẻ chia không hết) được dồn cho vài người đầu tiên trong
-// danh sách để tổng luôn khớp tuyệt đối.
-function computeShareBase() {
+// Cộng tổng các ô đã tick, so với "Số tiền" khoản chi. diff > 0 = còn thiếu,
+// diff < 0 = dư thừa, diff === 0 = khớp.
+function computeShareCheck() {
   const amount = Math.round(Number($('#expenseAmount').value) || 0);
   const rows = getShareRows();
   const checkedRows = rows.filter((r) => r.cb.checked);
-  const extraSum = checkedRows.reduce((sum, r) => sum + (Math.round(parseSumExpression(r.extraInput.value)) || 0), 0);
-  const remaining = amount - extraSum;
-  const n = checkedRows.length;
-  const valid = n > 0 && amount > 0 && remaining >= 0;
-  const base = valid ? Math.floor(remaining / n) : 0;
-  const remainder = valid ? remaining - base * n : 0;
-  return { amount, checkedRows, extraSum, remaining, n, valid, base, remainder };
+  const sum = checkedRows.reduce((total, r) => total + (Math.round(parseSumExpression(r.amountInput.value)) || 0), 0);
+  const diff = amount - sum;
+  return { amount, checkedRows, sum, diff, n: checkedRows.length };
 }
 
-// Trả về số cuối cùng của người thứ i (0-based, theo đúng thứ tự checkedRows
-// của computeShareBase) — dùng chung cho hiển thị và lúc build payload submit.
-function finalAmountAt(computed, i) {
-  const { checkedRows, base, remainder } = computed;
-  const extra = Math.round(parseSumExpression(checkedRows[i].extraInput.value)) || 0;
-  return base + (i < remainder ? 1 : 0) + extra;
-}
-
-// Ẩn/hiện ô "mua thêm riêng" theo (đang bật chia riêng) && (người đó có được
-// tick). Ô nào vừa bị ẩn thì xoá sạch giá trị để lần bật lại sau không giữ số
-// cũ vô nghĩa.
+// Ẩn/hiện ô số theo (đang bật chia riêng) && (người đó có được tick). Ô nào
+// vừa bị ẩn thì xoá sạch giá trị để lần bật lại sau không giữ số cũ vô nghĩa.
 function syncShareAmountVisibility() {
   const customMode = $('#shareCustomToggle').checked;
-  for (const { cb, extraInput, finalNote } of getShareRows()) {
+  for (const { cb, amountInput, finalNote } of getShareRows()) {
     const shouldShow = customMode && cb.checked;
-    extraInput.hidden = !shouldShow;
+    amountInput.hidden = !shouldShow;
     finalNote.hidden = !shouldShow;
-    if (!shouldShow) extraInput.value = '';
+    if (!shouldShow) amountInput.value = '';
   }
 }
 
+// Hiện lại đúng số đã parse ("= X đ") cạnh mỗi ô — chủ yếu để xác nhận khi gõ
+// nhiều món cộng dồn (vd "15000+8000") thì app đã cộng đúng ra bao nhiêu.
 function updateShareFinalNotes() {
   if (!$('#shareCustomToggle').checked) return;
-  const computed = computeShareBase();
-  computed.checkedRows.forEach((r, i) => {
-    r.finalNote.textContent = computed.valid ? `= ${fmtMoney(finalAmountAt(computed, i))}` : '';
-  });
+  for (const r of getShareRows()) {
+    if (!r.cb.checked) continue;
+    const v = parseSumExpression(r.amountInput.value);
+    r.finalNote.textContent = Number.isNaN(v) || !r.amountInput.value.trim() ? '' : `= ${fmtMoney(v)}`;
+  }
 }
 
 function updateShareAmountsTotal() {
@@ -646,22 +628,23 @@ function updateShareAmountsTotal() {
     return;
   }
   box.hidden = false;
-  const { amount, n, extraSum, valid, base } = computeShareBase();
+  const { amount, n, sum, diff } = computeShareCheck();
   if (n === 0) {
     box.textContent = 'Chọn ít nhất 1 người để chia riêng.';
     box.classList.remove('ok');
     box.classList.add('mismatch');
     return;
   }
-  if (!valid) {
-    box.textContent = `Tổng mua thêm riêng (${fmtMoney(extraSum)}) đã vượt quá số tiền khoản chi (${fmtMoney(amount)}).`;
-    box.classList.remove('ok');
-    box.classList.add('mismatch');
+  if (diff === 0 && amount > 0) {
+    box.textContent = `Đã khớp: ${fmtMoney(sum)}`;
+    box.classList.add('ok');
+    box.classList.remove('mismatch');
     return;
   }
-  box.textContent = `Phần chung còn lại: ${fmtMoney(base)}/người (chia đều cho ${n} người)`;
-  box.classList.add('ok');
-  box.classList.remove('mismatch');
+  const diffLabel = diff > 0 ? `còn thiếu ${fmtMoney(diff)}` : `dư thừa ${fmtMoney(-diff)}`;
+  box.textContent = `Đã nhập ${fmtMoney(sum)} / cần ${fmtMoney(amount)} — ${diffLabel}`;
+  box.classList.remove('ok');
+  box.classList.add('mismatch');
 }
 
 function refreshShareAmounts() {
@@ -806,22 +789,24 @@ $('#expenseForm').addEventListener(
     let shareMemberIds;
     let shareAmounts = null;
     if ($('#shareCustomToggle').checked) {
-      const computed = computeShareBase();
-      if (computed.n === 0) {
+      const checked = computeShareCheck();
+      if (checked.n === 0) {
         showError('Chia riêng: vui lòng chọn ít nhất 1 người.');
         return;
       }
-      if (!computed.valid) {
+      if (checked.diff !== 0) {
+        const diffLabel =
+          checked.diff > 0 ? `còn thiếu ${fmtMoney(checked.diff)}` : `dư thừa ${fmtMoney(-checked.diff)}`;
         showError(
-          `Chia riêng: tổng mua thêm riêng (${fmtMoney(computed.extraSum)}) đã vượt quá số tiền khoản chi (${fmtMoney(computed.amount)}).`
+          `Chia riêng: đã nhập ${fmtMoney(checked.sum)} / cần ${fmtMoney(checked.amount)} — ${diffLabel}. Sửa lại cho khớp đã nhé.`
         );
         return;
       }
       shareMemberIds = [];
       shareAmounts = {};
-      computed.checkedRows.forEach((r, i) => {
+      checked.checkedRows.forEach((r) => {
         shareMemberIds.push(r.cb.value);
-        shareAmounts[r.cb.value] = finalAmountAt(computed, i);
+        shareAmounts[r.cb.value] = Math.round(parseSumExpression(r.amountInput.value)) || 0;
       });
     } else {
       shareMemberIds = Array.from(
@@ -892,9 +877,7 @@ function startEditExpense(id) {
     cb.checked = e.shareMemberIds.includes(cb.value);
   });
   if (e.shareAmounts) {
-    // Nạp lại đúng số cuối đã lưu làm "mua thêm riêng" cho mọi người — phần
-    // chung tự tính về 0 (vì đã trừ hết), nên số cuối hiển thị vẫn khớp y hệt
-    // bản gốc. Sửa lại từ đây vẫn hoạt động bình thường như nhập mới.
+    // Nạp lại đúng số tiền cuối cùng đã lưu của từng người.
     document.querySelectorAll('#shareCheckboxes .share-amount-input').forEach((input) => {
       const v = e.shareAmounts[input.dataset.member];
       if (v !== undefined) input.value = Math.round(v);
