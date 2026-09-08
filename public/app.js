@@ -512,13 +512,17 @@ function renderExpenseForm() {
     // Ô này chỉ nhập phần MUA THÊM RIÊNG của người đó (để trống = không mua
     // thêm gì). Phần chung còn lại sau khi trừ hết các khoản mua thêm sẽ tự
     // chia đều cho tất cả người được tick — khỏi phải tự tính nhẩm.
+    // Dùng type="text" (không phải "number") để cho gõ được nhiều món cộng
+    // dồn kiểu "15000+20000+8000" — parseSumExpression() sẽ tự cộng lại,
+    // khỏi phải bấm máy tính rồi mới điền 1 số duy nhất vào đây.
     const extraInput = document.createElement('input');
-    extraInput.type = 'number';
+    extraInput.type = 'text';
+    extraInput.inputMode = 'decimal';
     extraInput.className = 'share-amount-input';
-    extraInput.min = '0';
-    extraInput.step = '1';
     extraInput.placeholder = '+ riêng';
-    extraInput.title = 'Số tiền người này mua thêm riêng, ngoài phần chia đều chung (để trống nếu không có)';
+    extraInput.title =
+      'Số tiền người này mua thêm riêng, ngoài phần chia đều chung (để trống nếu không có). ' +
+      'Gõ được nhiều món cộng dồn, vd: 15000+20000+8000 — tự cộng lại, khỏi cần tính tay.';
     extraInput.dataset.member = m.id;
     if (previousExtras.has(m.id)) extraInput.value = previousExtras.get(m.id);
     extraInput.hidden = !customMode || !cb.checked;
@@ -565,6 +569,21 @@ function renderExpenseForm() {
 //   từng người (phần chung tự về 0, không ai bị chia thêm ngoài ý muốn).
 // Tổng luôn tự khớp đúng số tiền khoản chi — không cần validate lệch tổng.
 
+// Cho phép gõ nhiều món cộng (trừ) dồn vào ô "mua thêm riêng", vd:
+// "15000+20000+8000" hoặc "20000-5000" (được giảm giá) — tự cộng lại thay vì
+// bắt người dùng tính tay rồi mới điền 1 số. Cố tình KHÔNG dùng eval() — chỉ
+// nhận số, dấu +/-, dấu chấm/phẩy và khoảng trắng, không có gì khác được thực
+// thi. Chuỗi rỗng -> 0. Chuỗi không hợp lệ (có chữ...) -> NaN (nơi gọi tự coi
+// NaN như 0 vì "NaN || 0" === 0).
+function parseSumExpression(raw) {
+  const str = String(raw ?? '').trim();
+  if (str === '') return 0;
+  if (!/^[\d+\-.,\s]+$/.test(str)) return NaN;
+  const tokens = str.replace(/,/g, '').match(/[+-]?\s*\d+(\.\d+)?/g);
+  if (!tokens) return NaN;
+  return tokens.reduce((sum, t) => sum + parseFloat(t.replace(/\s/g, '')), 0);
+}
+
 function getShareRows() {
   return Array.from(document.querySelectorAll('#shareCheckboxes label'))
     .map((label) => ({
@@ -582,7 +601,7 @@ function computeShareBase() {
   const amount = Math.round(Number($('#expenseAmount').value) || 0);
   const rows = getShareRows();
   const checkedRows = rows.filter((r) => r.cb.checked);
-  const extraSum = checkedRows.reduce((sum, r) => sum + (Math.round(Number(r.extraInput.value)) || 0), 0);
+  const extraSum = checkedRows.reduce((sum, r) => sum + (Math.round(parseSumExpression(r.extraInput.value)) || 0), 0);
   const remaining = amount - extraSum;
   const n = checkedRows.length;
   const valid = n > 0 && amount > 0 && remaining >= 0;
@@ -595,7 +614,7 @@ function computeShareBase() {
 // của computeShareBase) — dùng chung cho hiển thị và lúc build payload submit.
 function finalAmountAt(computed, i) {
   const { checkedRows, base, remainder } = computed;
-  const extra = Math.round(Number(checkedRows[i].extraInput.value)) || 0;
+  const extra = Math.round(parseSumExpression(checkedRows[i].extraInput.value)) || 0;
   return base + (i < remainder ? 1 : 0) + extra;
 }
 
