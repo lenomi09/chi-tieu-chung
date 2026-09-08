@@ -494,10 +494,15 @@ tbody tr:hover {
 }
 
 .receipt-dropzone:hover,
-.receipt-dropzone:focus-visible {
+.receipt-dropzone:focus-visible,
+.receipt-dropzone.drag-over {
   border-color: var(--primary);
   background: #eff6ff;
   outline: none;
+}
+
+.receipt-dropzone.drag-over {
+  border-style: solid;
 }
 
 .receipt-dropzone:active {

@@ -470,6 +470,26 @@ $('#receiptDropzone').addEventListener('keydown', (ev) => {
   }
 });
 
+// Kéo thả file ảnh trực tiếp vào vùng dropzone.
+const receiptDropzoneEl = $('#receiptDropzone');
+['dragenter', 'dragover'].forEach((type) => {
+  receiptDropzoneEl.addEventListener(type, (ev) => {
+    ev.preventDefault();
+    receiptDropzoneEl.classList.add('drag-over');
+  });
+});
+['dragleave', 'dragend'].forEach((type) => {
+  receiptDropzoneEl.addEventListener(type, () => {
+    receiptDropzoneEl.classList.remove('drag-over');
+  });
+});
+receiptDropzoneEl.addEventListener('drop', (ev) => {
+  ev.preventDefault();
+  receiptDropzoneEl.classList.remove('drag-over');
+  const file = Array.from(ev.dataTransfer?.files || []).find((f) => f.type.startsWith('image/'));
+  if (file) handleReceiptFile(file);
+});
+
 $('#expenseReceiptInput').addEventListener('change', (ev) => {
   const file = ev.target.files[0];
   if (file) handleReceiptFile(file);
