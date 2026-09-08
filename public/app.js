@@ -2,6 +2,7 @@
 
 let state = { isAdmin: false, members: [], expenses: [], settlements: [], summary: [], debts: [] };
 let editingExpenseId = null;
+let currentReceipt = null; // data URL ảnh bill đang gắn với form khoản chi (null = không có)
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -410,6 +411,61 @@ function renderExpenseForm() {
   }
 }
 
+// Nén ảnh bill xuống kích thước/dung lượng nhỏ ngay trên trình duyệt trước khi
+// gửi lên (Turso free tier có hạn dung lượng) — trả về data URL JPEG.
+function compressImageFile(file, { maxDim = 1600, quality = 0.82 } = {}) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Không đọc được file ảnh'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('File không phải ảnh hợp lệ'));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          const scale = maxDim / Math.max(width, height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function showReceiptPreview(dataUrl) {
+  $('#receiptPreviewImg').src = dataUrl;
+  $('#receiptPreviewWrap').hidden = false;
+}
+
+function clearReceiptField() {
+  currentReceipt = null;
+  $('#expenseReceiptInput').value = '';
+  $('#receiptPreviewWrap').hidden = true;
+  $('#receiptPreviewImg').src = '';
+}
+
+$('#expenseReceiptInput').addEventListener('change', async (ev) => {
+  const file = ev.target.files[0];
+  if (!file) return;
+  try {
+    clearError();
+    currentReceipt = await compressImageFile(file);
+    showReceiptPreview(currentReceipt);
+  } catch (e) {
+    showError(e.message);
+    clearReceiptField();
+  }
+});
+
+$('#receiptRemoveBtn').addEventListener('click', clearReceiptField);
+
 $('#checkAll').addEventListener('click', () => {
   $('#shareCheckboxes').dataset.touched = 'true';
   document.querySelectorAll('#shareCheckboxes input').forEach((cb) => (cb.checked = true));
@@ -428,6 +484,7 @@ function resetExpenseForm() {
   $('#shareCheckboxes').dataset.touched = 'false';
   $('#expenseSubmitBtn').textContent = '+ Thêm khoản chi';
   $('#expenseCancelEdit').hidden = true;
+  clearReceiptField();
   renderExpenseForm();
 }
 
@@ -447,6 +504,7 @@ $('#expenseForm').addEventListener(
       amount: Number($('#expenseAmount').value),
       payerId: $('#expensePayer').value,
       shareMemberIds,
+      receipt: currentReceipt,
     };
 
     const wasAdmin = state.isAdmin;
@@ -497,6 +555,12 @@ function startEditExpense(id) {
   document.querySelectorAll('#shareCheckboxes input').forEach((cb) => {
     cb.checked = e.shareMemberIds.includes(cb.value);
   });
+  if (e.receipt) {
+    currentReceipt = e.receipt;
+    showReceiptPreview(e.receipt);
+  } else {
+    clearReceiptField();
+  }
   $('#expenseSubmitBtn').textContent = 'Lưu thay đổi';
   $('#expenseCancelEdit').hidden = false;
   $('#expenseForm').scrollIntoView({ behavior: 'smooth' });
@@ -511,7 +575,7 @@ function renderExpenseTable() {
 
   if (sorted.length === 0) {
     const tr = document.createElement('tr');
-    tr.innerHTML = '<td colspan="7" class="empty-msg">Chưa có khoản chi nào</td>';
+    tr.innerHTML = '<td colspan="8" class="empty-msg">Chưa có khoản chi nào</td>';
     tbody.appendChild(tr);
     return;
   }
@@ -546,6 +610,22 @@ function renderExpenseTable() {
       shareWrap.appendChild(chip);
     }
     tdShare.appendChild(shareWrap);
+
+    const tdBill = document.createElement('td');
+    if (e.receipt) {
+      const thumbBtn = document.createElement('button');
+      thumbBtn.type = 'button';
+      thumbBtn.className = 'bill-thumb-btn';
+      thumbBtn.title = 'Xem bill';
+      const thumbImg = document.createElement('img');
+      thumbImg.src = e.receipt;
+      thumbImg.alt = 'Bill';
+      thumbBtn.appendChild(thumbImg);
+      thumbBtn.addEventListener('click', () => openBillDialog(e.receipt));
+      tdBill.appendChild(thumbBtn);
+    } else {
+      tdBill.textContent = '—';
+    }
 
     const tdStatus = document.createElement('td');
     const badge = document.createElement('span');
@@ -637,7 +717,7 @@ function renderExpenseTable() {
       tdActions.appendChild(actionsWrap);
     }
 
-    tr.append(tdDate, tdDesc, tdAmount, tdPayer, tdShare, tdStatus, tdActions);
+    tr.append(tdDate, tdDesc, tdAmount, tdPayer, tdShare, tdBill, tdStatus, tdActions);
     tbody.appendChild(tr);
   }
 }
@@ -798,5 +878,83 @@ $('#resetAllBtn').addEventListener(
     }
   })
 );
+
+// ---- Xem ảnh bill (zoom + kéo để di chuyển) ----
+
+let billZoom = 1;
+
+function applyBillZoom() {
+  const img = $('#billImage');
+  if (!img.naturalWidth) return;
+  billZoom = Math.min(4, Math.max(0.25, billZoom));
+  img.style.width = `${img.naturalWidth * billZoom}px`;
+  img.style.height = `${img.naturalHeight * billZoom}px`;
+}
+
+function openBillDialog(src) {
+  const dialog = $('#billViewDialog');
+  const img = $('#billImage');
+  const wrap = $('#billImageWrap');
+  img.style.width = '';
+  img.style.height = '';
+  dialog.showModal();
+  img.onload = () => {
+    // Mặc định thu vừa khung xem (không phóng to ảnh nhỏ hơn khung).
+    billZoom = Math.min(1, wrap.clientWidth / img.naturalWidth, wrap.clientHeight / img.naturalHeight) || 1;
+    applyBillZoom();
+  };
+  img.src = src;
+}
+
+$('#billZoomInBtn').addEventListener('click', () => {
+  billZoom += 0.25;
+  applyBillZoom();
+});
+$('#billZoomOutBtn').addEventListener('click', () => {
+  billZoom -= 0.25;
+  applyBillZoom();
+});
+$('#billZoomResetBtn').addEventListener('click', () => {
+  billZoom = 1;
+  applyBillZoom();
+});
+$('#billCloseBtn').addEventListener('click', () => $('#billViewDialog').close());
+
+$('#billImageWrap').addEventListener(
+  'wheel',
+  (ev) => {
+    ev.preventDefault();
+    billZoom += ev.deltaY < 0 ? 0.15 : -0.15;
+    applyBillZoom();
+  },
+  { passive: false }
+);
+
+(() => {
+  const wrap = $('#billImageWrap');
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let startScrollX = 0;
+  let startScrollY = 0;
+
+  wrap.addEventListener('mousedown', (ev) => {
+    dragging = true;
+    wrap.classList.add('dragging');
+    startX = ev.clientX;
+    startY = ev.clientY;
+    startScrollX = wrap.scrollLeft;
+    startScrollY = wrap.scrollTop;
+  });
+  window.addEventListener('mousemove', (ev) => {
+    if (!dragging) return;
+    wrap.scrollLeft = startScrollX - (ev.clientX - startX);
+    wrap.scrollTop = startScrollY - (ev.clientY - startY);
+  });
+  window.addEventListener('mouseup', () => {
+    dragging = false;
+    wrap.classList.remove('dragging');
+  });
+})();
 
 loadState().catch((e) => showError(e.message));

@@ -12,7 +12,9 @@ const { computeSummary, computeDebts } = require('./lib/calc');
 const app = express();
 const PORT = process.env.PORT || 3456;
 
-app.use(express.json());
+// Nâng giới hạn body JSON vì ảnh bill (đã nén phía trình duyệt) được gửi dạng
+// base64 lồng trong payload — mặc định 100kb của Express là không đủ.
+app.use(express.json({ limit: '6mb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -133,12 +135,25 @@ function validateExpenseInput(body, members) {
   return null;
 }
 
+const MAX_RECEIPT_LENGTH = 4 * 1024 * 1024; // ~4MB chuỗi base64
+
+function validateReceipt(receipt) {
+  if (receipt === null || receipt === undefined || receipt === '') return null;
+  if (typeof receipt !== 'string' || !receipt.startsWith('data:image/')) {
+    return 'Ảnh bill không hợp lệ';
+  }
+  if (receipt.length > MAX_RECEIPT_LENGTH) {
+    return 'Ảnh bill quá lớn';
+  }
+  return null;
+}
+
 app.post(
   '/api/expenses',
   auth.requireAdmin,
   asyncRoute(async (req, res) => {
     const members = await db.getMembers();
-    const err = validateExpenseInput(req.body, members);
+    const err = validateExpenseInput(req.body, members) || validateReceipt(req.body.receipt);
     if (err) return res.status(400).json({ error: err });
 
     await db.addExpense({
@@ -148,6 +163,7 @@ app.post(
       payerId: req.body.payerId,
       shareMemberIds: req.body.shareMemberIds.filter((id) => members.some((m) => m.id === id)),
       status: 'approved',
+      receipt: req.body.receipt || null,
     });
     res.json(await buildState(req));
   })
@@ -159,7 +175,7 @@ app.post(
   '/api/expense-requests',
   asyncRoute(async (req, res) => {
     const members = await db.getMembers();
-    const err = validateExpenseInput(req.body, members);
+    const err = validateExpenseInput(req.body, members) || validateReceipt(req.body.receipt);
     if (err) return res.status(400).json({ error: err });
 
     await db.addExpense({
@@ -169,6 +185,7 @@ app.post(
       payerId: req.body.payerId,
       shareMemberIds: req.body.shareMemberIds.filter((id) => members.some((m) => m.id === id)),
       status: 'pending',
+      receipt: req.body.receipt || null,
     });
     res.json(await buildState(req));
   })
@@ -204,7 +221,7 @@ app.put(
     if (!exists) return res.status(404).json({ error: 'Không tìm thấy khoản chi' });
 
     const members = await db.getMembers();
-    const err = validateExpenseInput(req.body, members);
+    const err = validateExpenseInput(req.body, members) || validateReceipt(req.body.receipt);
     if (err) return res.status(400).json({ error: err });
 
     await db.updateExpense(req.params.id, {
@@ -213,6 +230,7 @@ app.put(
       amount: Math.round(Number(req.body.amount)),
       payerId: req.body.payerId,
       shareMemberIds: req.body.shareMemberIds.filter((id) => members.some((m) => m.id === id)),
+      receipt: req.body.receipt || null,
     });
     res.json(await buildState(req));
   })

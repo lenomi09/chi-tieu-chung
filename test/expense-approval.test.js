@@ -163,3 +163,51 @@ test('bộ số liệu mẫu qua API thật + yêu cầu thêm khoản chi cần
   const rejectedEntry = afterReject.expenses.find((e) => e.id === pendingId2);
   assert.equal(rejectedEntry.status, 'rejected');
 });
+
+test('ảnh bill: lưu và đọc lại đúng, sửa khoản chi không kèm ảnh sẽ xoá ảnh cũ, ảnh sai định dạng bị từ chối', async () => {
+  const { cookie } = await api('/api/login', { method: 'POST', body: { password: 'test-password' } });
+  const addMember = async (name) => {
+    const r = await api('/api/members', { method: 'POST', cookie, body: { name } });
+    return r.data.members.find((m) => m.name === name).id;
+  };
+  const an = await addMember('An');
+
+  const fakeReceipt = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAAAAAAAD//2Q==';
+
+  const created = await api('/api/expenses', {
+    method: 'POST',
+    cookie,
+    body: {
+      date: '2026-09-10',
+      amount: 20000,
+      payerId: an,
+      shareMemberIds: [an],
+      receipt: fakeReceipt,
+    },
+  });
+  assert.equal(created.status, 200);
+  const expenseId = created.data.expenses.find((e) => e.receipt === fakeReceipt).id;
+
+  // Sửa lại khoản chi nhưng KHÔNG gửi kèm receipt -> ảnh cũ bị xoá (đúng hành vi hiện tại,
+  // vì client luôn gửi lại giá trị receipt hiện có/rỗng cùng payload).
+  const updated = await api(`/api/expenses/${expenseId}`, {
+    method: 'PUT',
+    cookie,
+    body: { date: '2026-09-10', amount: 25000, payerId: an, shareMemberIds: [an] },
+  });
+  assert.equal(updated.data.expenses.find((e) => e.id === expenseId).receipt, null);
+
+  // Ảnh không đúng định dạng data URL -> bị từ chối
+  const invalid = await api('/api/expenses', {
+    method: 'POST',
+    cookie,
+    body: {
+      date: '2026-09-10',
+      amount: 10000,
+      payerId: an,
+      shareMemberIds: [an],
+      receipt: 'khong-phai-data-url',
+    },
+  });
+  assert.equal(invalid.status, 400);
+});
