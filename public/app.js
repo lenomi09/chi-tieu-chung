@@ -921,14 +921,15 @@ $('#resetAllBtn').addEventListener(
   })
 );
 
-// ---- Xem ảnh bill (zoom + kéo để di chuyển) ----
+// ---- Xem ảnh bill (zoom + kéo-giữ-thả để di chuyển) ----
 
 let billZoom = 1;
 
-function applyBillZoom() {
+function setBillZoom(zoom) {
   const img = $('#billImage');
   if (!img.naturalWidth) return;
-  billZoom = Math.min(4, Math.max(0.25, billZoom));
+  // Làm tròn 2 chữ số để tránh trôi số thập phân khi cộng dồn nhiều lần.
+  billZoom = Math.round(Math.min(4, Math.max(0.25, zoom)) * 100) / 100;
   img.style.width = `${img.naturalWidth * billZoom}px`;
   img.style.height = `${img.naturalHeight * billZoom}px`;
 }
@@ -942,36 +943,29 @@ function openBillDialog(src) {
   dialog.showModal();
   img.onload = () => {
     // Mặc định thu vừa khung xem (không phóng to ảnh nhỏ hơn khung).
-    billZoom = Math.min(1, wrap.clientWidth / img.naturalWidth, wrap.clientHeight / img.naturalHeight) || 1;
-    applyBillZoom();
+    const fit = Math.min(1, wrap.clientWidth / img.naturalWidth, wrap.clientHeight / img.naturalHeight) || 1;
+    setBillZoom(fit);
   };
   img.src = src;
 }
 
-$('#billZoomInBtn').addEventListener('click', () => {
-  billZoom += 0.25;
-  applyBillZoom();
-});
-$('#billZoomOutBtn').addEventListener('click', () => {
-  billZoom -= 0.25;
-  applyBillZoom();
-});
-$('#billZoomResetBtn').addEventListener('click', () => {
-  billZoom = 1;
-  applyBillZoom();
-});
+$('#billZoomInBtn').addEventListener('click', () => setBillZoom(billZoom + 0.25));
+$('#billZoomOutBtn').addEventListener('click', () => setBillZoom(billZoom - 0.25));
+$('#billZoomResetBtn').addEventListener('click', () => setBillZoom(1));
 $('#billCloseBtn').addEventListener('click', () => $('#billViewDialog').close());
 
 $('#billImageWrap').addEventListener(
   'wheel',
   (ev) => {
     ev.preventDefault();
-    billZoom += ev.deltaY < 0 ? 0.15 : -0.15;
-    applyBillZoom();
+    setBillZoom(billZoom + (ev.deltaY < 0 ? 0.15 : -0.15));
   },
   { passive: false }
 );
 
+// Kéo-giữ-thả bằng chuột để di chuyển ảnh khi đã zoom. Phải chặn hành vi kéo-ảnh
+// mặc định của trình duyệt (native image drag) — nếu không, mousemove sẽ ngừng
+// bắn giữa chừng ngay khi trình duyệt tự chuyển sang chế độ kéo-thả file ảnh.
 (() => {
   const wrap = $('#billImageWrap');
   let dragging = false;
@@ -981,6 +975,7 @@ $('#billImageWrap').addEventListener(
   let startScrollY = 0;
 
   wrap.addEventListener('mousedown', (ev) => {
+    ev.preventDefault();
     dragging = true;
     wrap.classList.add('dragging');
     startX = ev.clientX;

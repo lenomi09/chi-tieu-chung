@@ -616,6 +616,8 @@ tbody tr:hover {
   display: block;
   transition: width 0.15s ease, height 0.15s ease;
   user-select: none;
+  -webkit-user-drag: none;
+  user-drag: none;
 }
 
 @media (max-width: 600px) {
