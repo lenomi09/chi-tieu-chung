@@ -104,9 +104,14 @@ chậm vài giây — bình thường với nhóm nhỏ.
      danh sách khoản chi), admin bấm "Duyệt"/"Từ chối" ngay trên dòng đó. Bị từ chối vẫn
      lưu lại lịch sử, không tính vào số dư.
 4. **Tổng kết / Ai nợ ai**: ai cũng xem được, tự động cập nhật.
-5. **Ghi nhận thanh toán**: (chỉ admin) khi ai đó đã thực sự chuyển khoản/trả tiền mặt, bấm
-   nút "Ghi nhận đã trả" ngay trên dòng nợ tương ứng ở mục "Ai nợ ai" — không nhập tay
-   người trả/người nhận/số tiền để tránh ghi nhầm; số tiền luôn đúng bằng đúng số nợ đang
-   hiện. Tính vào số dư ngay, không cần duyệt vì admin đã được tin tưởng.
+5. **Ghi nhận thanh toán**: khi ai đó đã thực sự chuyển khoản/trả tiền mặt, bấm nút tương
+   ứng ngay trên dòng nợ ở mục "Ai nợ ai" — không nhập tay người trả/người nhận/số tiền để
+   tránh ghi nhầm; số tiền luôn đúng bằng đúng số nợ đang hiện.
+   - Admin: bấm "Ghi nhận đã trả" → tính vào số dư ngay, không cần duyệt vì admin đã được
+     tin tưởng.
+   - Người khác: bấm "Gửi yêu cầu đã trả" → thanh toán vào hàng chờ (badge "Chờ duyệt"
+     trong bảng "Lịch sử thanh toán"), admin bấm "Duyệt"/"Từ chối". Bị từ chối vẫn lưu lại
+     lịch sử, không tính vào số dư — tránh trường hợp tự khai đã trả để nợ biến mất trước
+     khi admin xác minh.
 6. **Xoá sạch dữ liệu**: (admin) dùng khi mọi người đã trả hết nợ hoặc muốn ghi chi tiêu
    đợt mới — xoá khoản chi + lịch sử thanh toán, giữ nguyên danh sách thành viên.

@@ -194,11 +194,11 @@
       <p id="debtEmpty" class="empty-msg" hidden>Không ai nợ ai cả 🎉</p>
     </section>
 
-    <!-- Lịch sử thanh toán (chỉ admin) -->
-    <section id="settlementFormSection" class="card admin-only" hidden>
+    <!-- Lịch sử thanh toán -->
+    <section id="settlementFormSection" class="card">
       <h2>Lịch sử thanh toán</h2>
       <p class="sub">
-        Ghi nhận thanh toán bằng cách bấm "Ghi nhận đã trả" trên từng dòng ở mục
+        Ghi nhận/gửi yêu cầu thanh toán bằng cách bấm nút tương ứng trên từng dòng ở mục
         "Ai nợ ai" bên trên — không nhập tay ở đây để tránh ghi nhầm người/số tiền.
       </p>
       <div class="table-wrap">
@@ -209,6 +209,8 @@
               <th>Người trả nợ</th>
               <th>Người nhận</th>
               <th>Số tiền</th>
+              <th>Trạng thái</th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="settlementTableBody"></tbody>

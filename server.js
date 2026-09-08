@@ -31,8 +31,9 @@ function asyncRoute(handler) {
 async function buildState(req) {
   const { members, expenses, settlements } = await db.getState();
   const approvedExpenses = expenses.filter((e) => e.status === 'approved');
-  const summary = computeSummary(members, approvedExpenses, settlements);
-  const debts = computeDebts(members, approvedExpenses, settlements);
+  const approvedSettlements = settlements.filter((s) => s.status === 'approved');
+  const summary = computeSummary(members, approvedExpenses, approvedSettlements);
+  const debts = computeDebts(members, approvedExpenses, approvedSettlements);
   return {
     isAdmin: auth.isAdminRequest(req),
     members,
@@ -247,7 +248,8 @@ app.delete(
   })
 );
 
-// ---- Thanh toán (admin ghi nhận trực tiếp -> approved ngay) ----
+// ---- Thanh toán (admin ghi nhận trực tiếp -> approved ngay; người khác gửi
+//      yêu cầu -> pending, chờ admin duyệt) ----
 
 function validateSettlementInput(body, members) {
   const amount = Number(body.amount);
@@ -282,7 +284,50 @@ app.post(
       fromId: req.body.fromId,
       toId: req.body.toId,
       amount: Math.round(Number(req.body.amount)),
+      status: 'approved',
     });
+    res.json(await buildState(req));
+  })
+);
+
+// ---- Yêu cầu ghi nhận đã trả nợ (ai cũng gửi được, chờ admin duyệt) ----
+
+app.post(
+  '/api/settlement-requests',
+  asyncRoute(async (req, res) => {
+    const members = await db.getMembers();
+    const err = validateSettlementInput(req.body, members);
+    if (err) return res.status(400).json({ error: err });
+
+    await db.addSettlement({
+      date: req.body.date,
+      fromId: req.body.fromId,
+      toId: req.body.toId,
+      amount: Math.round(Number(req.body.amount)),
+      status: 'pending',
+    });
+    res.json(await buildState(req));
+  })
+);
+
+app.post(
+  '/api/settlement-requests/:id/approve',
+  auth.requireAdmin,
+  asyncRoute(async (req, res) => {
+    const s = await db.getSettlementById(req.params.id);
+    if (!s) return res.status(404).json({ error: 'Không tìm thấy yêu cầu thanh toán' });
+    await db.setSettlementStatus(req.params.id, 'approved');
+    res.json(await buildState(req));
+  })
+);
+
+app.post(
+  '/api/settlement-requests/:id/reject',
+  auth.requireAdmin,
+  asyncRoute(async (req, res) => {
+    const s = await db.getSettlementById(req.params.id);
+    if (!s) return res.status(404).json({ error: 'Không tìm thấy yêu cầu thanh toán' });
+    await db.setSettlementStatus(req.params.id, 'rejected');
     res.json(await buildState(req));
   })
 );

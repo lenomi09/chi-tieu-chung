@@ -159,8 +159,9 @@ async function api(path, options) {
 // (optimistic) ngay khi bấm nút, không cần chờ round-trip mạng tới Turso.
 function recomputeDerived() {
   const approvedExpenses = state.expenses.filter((e) => e.status === 'approved');
-  state.summary = calc.computeSummary(state.members, approvedExpenses, state.settlements);
-  state.debts = calc.computeDebts(state.members, approvedExpenses, state.settlements);
+  const approvedSettlements = state.settlements.filter((s) => s.status === 'approved');
+  state.summary = calc.computeSummary(state.members, approvedExpenses, approvedSettlements);
+  state.debts = calc.computeDebts(state.members, approvedExpenses, approvedSettlements);
 }
 
 // Áp dụng thay đổi ngay lập tức (apply) + render, rồi mới gửi request thật lên
@@ -814,44 +815,49 @@ function renderDebts() {
 
     li.appendChild(text);
 
-    if (state.isAdmin) {
-      const actions = document.createElement('div');
-      actions.className = 'debt-actions';
+    const actions = document.createElement('div');
+    actions.className = 'debt-actions';
 
-      const settleBtn = document.createElement('button');
-      settleBtn.className = 'secondary';
-      settleBtn.textContent = 'Ghi nhận đã trả';
-      settleBtn.addEventListener(
-        'click',
-        withGuard(settleBtn, async () => {
-          const amount = Math.round(d.amount);
-          const confirmed = await showConfirm(
-            `Ghi nhận "${nameOf(d.fromId)}" đã trả "${nameOf(d.toId)}" ${fmtMoney(amount)}?`,
-            { okLabel: 'Ghi nhận' }
+    const settleBtn = document.createElement('button');
+    settleBtn.className = 'secondary';
+    settleBtn.textContent = state.isAdmin ? 'Ghi nhận đã trả' : 'Gửi yêu cầu đã trả';
+    settleBtn.addEventListener(
+      'click',
+      withGuard(settleBtn, async () => {
+        const amount = Math.round(d.amount);
+        const confirmed = await showConfirm(
+          state.isAdmin
+            ? `Ghi nhận "${nameOf(d.fromId)}" đã trả "${nameOf(d.toId)}" ${fmtMoney(amount)}?`
+            : `Gửi yêu cầu xác nhận "${nameOf(d.fromId)}" đã trả "${nameOf(d.toId)}" ${fmtMoney(amount)}? Admin sẽ duyệt trước khi số dư cập nhật.`,
+          { okLabel: state.isAdmin ? 'Ghi nhận' : 'Gửi yêu cầu' }
+        );
+        if (!confirmed) return;
+        const date = todayStr();
+        const endpoint = state.isAdmin ? '/api/settlements' : '/api/settlement-requests';
+        const status = state.isAdmin ? 'approved' : 'pending';
+        try {
+          clearError();
+          await optimisticMutate(
+            () => {
+              state.settlements.push({ id: `temp-${Date.now()}`, fromId: d.fromId, toId: d.toId, amount, date, status });
+            },
+            () =>
+              api(endpoint, {
+                method: 'POST',
+                body: JSON.stringify({ fromId: d.fromId, toId: d.toId, amount, date }),
+              })
           );
-          if (!confirmed) return;
-          const date = todayStr();
-          try {
-            clearError();
-            await optimisticMutate(
-              () => {
-                state.settlements.push({ id: `temp-${Date.now()}`, fromId: d.fromId, toId: d.toId, amount, date });
-              },
-              () =>
-                api('/api/settlements', {
-                  method: 'POST',
-                  body: JSON.stringify({ fromId: d.fromId, toId: d.toId, amount, date }),
-                })
-            );
-          } catch (e) {
-            showError(e.message);
+          if (!state.isAdmin) {
+            showToast('Đã gửi yêu cầu, chờ admin duyệt.');
           }
-        })
-      );
+        } catch (e) {
+          showError(e.message);
+        }
+      })
+    );
 
-      actions.appendChild(settleBtn);
-      li.appendChild(actions);
-    }
+    actions.appendChild(settleBtn);
+    li.appendChild(actions);
 
     ul.appendChild(li);
   }
@@ -866,19 +872,82 @@ function renderSettlementTable() {
 
   if (sorted.length === 0) {
     const tr = document.createElement('tr');
-    tr.innerHTML = '<td colspan="4" class="empty-msg">Chưa có thanh toán nào</td>';
+    tr.innerHTML = '<td colspan="6" class="empty-msg">Chưa có thanh toán nào</td>';
     tbody.appendChild(tr);
     return;
   }
 
   for (const s of sorted) {
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${s.date}</td>
-      <td>${escapeHtml(nameOf(s.fromId))}</td>
-      <td>${escapeHtml(nameOf(s.toId))}</td>
-      <td class="amount">${fmtMoney(s.amount)}</td>
-    `;
+
+    const tdDate = document.createElement('td');
+    tdDate.textContent = s.date;
+    const tdFrom = document.createElement('td');
+    tdFrom.textContent = nameOf(s.fromId);
+    const tdTo = document.createElement('td');
+    tdTo.textContent = nameOf(s.toId);
+    const tdAmount = document.createElement('td');
+    tdAmount.className = 'amount';
+    tdAmount.textContent = fmtMoney(s.amount);
+
+    const tdStatus = document.createElement('td');
+    const badge = document.createElement('span');
+    badge.className = `status-badge ${s.status}`;
+    badge.textContent = STATUS_LABEL[s.status] || s.status;
+    tdStatus.appendChild(badge);
+
+    const tdActions = document.createElement('td');
+    if (state.isAdmin && s.status === 'pending') {
+      const wrap = document.createElement('div');
+      wrap.className = 'row-actions';
+
+      const approveBtn = document.createElement('button');
+      approveBtn.textContent = 'Duyệt';
+      approveBtn.addEventListener(
+        'click',
+        withGuard(approveBtn, async () => {
+          try {
+            clearError();
+            await optimisticMutate(
+              () => {
+                const st = state.settlements.find((x) => x.id === s.id);
+                if (st) st.status = 'approved';
+              },
+              () => api(`/api/settlement-requests/${s.id}/approve`, { method: 'POST' })
+            );
+          } catch (err) {
+            showError(err.message);
+          }
+        })
+      );
+
+      const rejectBtn = document.createElement('button');
+      rejectBtn.className = 'danger';
+      rejectBtn.textContent = 'Từ chối';
+      rejectBtn.addEventListener(
+        'click',
+        withGuard(rejectBtn, async () => {
+          try {
+            clearError();
+            await optimisticMutate(
+              () => {
+                const st = state.settlements.find((x) => x.id === s.id);
+                if (st) st.status = 'rejected';
+              },
+              () => api(`/api/settlement-requests/${s.id}/reject`, { method: 'POST' })
+            );
+          } catch (err) {
+            showError(err.message);
+          }
+        })
+      );
+
+      wrap.appendChild(approveBtn);
+      wrap.appendChild(rejectBtn);
+      tdActions.appendChild(wrap);
+    }
+
+    tr.append(tdDate, tdFrom, tdTo, tdAmount, tdStatus, tdActions);
     tbody.appendChild(tr);
   }
 }
