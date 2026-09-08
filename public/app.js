@@ -442,6 +442,7 @@ function compressImageFile(file, { maxDim = 1600, quality = 0.82 } = {}) {
 function showReceiptPreview(dataUrl) {
   $('#receiptPreviewImg').src = dataUrl;
   $('#receiptPreviewWrap').hidden = false;
+  $('#receiptDropzone').hidden = true;
 }
 
 function clearReceiptField() {
@@ -449,11 +450,10 @@ function clearReceiptField() {
   $('#expenseReceiptInput').value = '';
   $('#receiptPreviewWrap').hidden = true;
   $('#receiptPreviewImg').src = '';
+  $('#receiptDropzone').hidden = false;
 }
 
-$('#expenseReceiptInput').addEventListener('change', async (ev) => {
-  const file = ev.target.files[0];
-  if (!file) return;
+async function handleReceiptFile(file) {
   try {
     clearError();
     currentReceipt = await compressImageFile(file);
@@ -462,9 +462,33 @@ $('#expenseReceiptInput').addEventListener('change', async (ev) => {
     showError(e.message);
     clearReceiptField();
   }
+}
+
+$('#receiptDropzone').addEventListener('click', () => $('#expenseReceiptInput').click());
+$('#receiptDropzone').addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter' || ev.key === ' ') {
+    ev.preventDefault();
+    $('#expenseReceiptInput').click();
+  }
+});
+
+$('#expenseReceiptInput').addEventListener('change', (ev) => {
+  const file = ev.target.files[0];
+  if (file) handleReceiptFile(file);
 });
 
 $('#receiptRemoveBtn').addEventListener('click', clearReceiptField);
+
+// Dán ảnh trực tiếp từ clipboard (Ctrl+V) khi đang thao tác trong form khoản chi.
+$('#expenseForm').addEventListener('paste', (ev) => {
+  const items = ev.clipboardData && ev.clipboardData.items;
+  if (!items) return;
+  const imageItem = Array.from(items).find((item) => item.type.startsWith('image/'));
+  if (!imageItem) return;
+  ev.preventDefault();
+  const file = imageItem.getAsFile();
+  if (file) handleReceiptFile(file);
+});
 
 $('#checkAll').addEventListener('click', () => {
   $('#shareCheckboxes').dataset.touched = 'true';
