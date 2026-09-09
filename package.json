@@ -8,7 +8,7 @@
     "start": "node server/index.js",
     "dev": "node server/index.js",
     "dev:client": "npm run dev --prefix client",
-    "build": "npm install --prefix client && npm run build --prefix client",
+    "build": "npm install --prefix client --include=dev && npm run build --prefix client",
     "test": "node --test test/*.test.js",
     "migrate": "node scripts/migrate-json-to-db.js"
   },
