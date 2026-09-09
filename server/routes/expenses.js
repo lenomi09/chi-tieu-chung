@@ -52,9 +52,11 @@ router.post(
   '/expense-requests/:id/approve',
   requireAdmin,
   asyncRoute(async (req, res) => {
-    const e = await db.getExpenseById(req.params.id);
-    if (!e) return res.status(404).json({ error: 'Không tìm thấy yêu cầu khoản chi' });
-    await db.setExpenseStatus(req.params.id, 'approved');
+    // Gộp bước kiểm tra tồn tại + ghi vào 1 round-trip DB duy nhất (UPDATE ...
+    // rồi xét rowsAffected) thay vì SELECT trước rồi mới UPDATE — bớt 1 lượt
+    // đi-về tới Turso mỗi lần duyệt, độ trễ vốn cộng dồn từ nhiều bước tuần tự.
+    const ok = await db.setExpenseStatus(req.params.id, 'approved');
+    if (!ok) return res.status(404).json({ error: 'Không tìm thấy yêu cầu khoản chi' });
     res.json(await buildState(req));
   })
 );
@@ -63,9 +65,8 @@ router.post(
   '/expense-requests/:id/reject',
   requireAdmin,
   asyncRoute(async (req, res) => {
-    const e = await db.getExpenseById(req.params.id);
-    if (!e) return res.status(404).json({ error: 'Không tìm thấy yêu cầu khoản chi' });
-    await db.setExpenseStatus(req.params.id, 'rejected');
+    const ok = await db.setExpenseStatus(req.params.id, 'rejected');
+    if (!ok) return res.status(404).json({ error: 'Không tìm thấy yêu cầu khoản chi' });
     res.json(await buildState(req));
   })
 );
@@ -101,9 +102,8 @@ router.delete(
   '/expenses/:id',
   requireAdmin,
   asyncRoute(async (req, res) => {
-    const exists = await db.expenseExists(req.params.id);
-    if (!exists) return res.status(404).json({ error: 'Không tìm thấy khoản chi' });
-    await db.deleteExpense(req.params.id);
+    const ok = await db.deleteExpense(req.params.id);
+    if (!ok) return res.status(404).json({ error: 'Không tìm thấy khoản chi' });
     res.json(await buildState(req));
   })
 );

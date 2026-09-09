@@ -98,12 +98,6 @@ async function renameMember(id, name) {
   return rs.rowsAffected > 0;
 }
 
-async function memberExists(id) {
-  await init();
-  const rs = await client.execute({ sql: 'SELECT 1 FROM members WHERE id = ?', args: [id] });
-  return rs.rows.length > 0;
-}
-
 async function memberIsReferenced(id) {
   await init();
   const [inExpensePayer, inExpenseShare, inSettlement] = await Promise.all([
@@ -119,7 +113,8 @@ async function memberIsReferenced(id) {
 
 async function deleteMember(id) {
   await init();
-  await client.execute({ sql: 'DELETE FROM members WHERE id = ?', args: [id] });
+  const rs = await client.execute({ sql: 'DELETE FROM members WHERE id = ?', args: [id] });
+  return rs.rowsAffected > 0;
 }
 
 async function getExpenses() {
@@ -196,25 +191,6 @@ async function addExpense({
   return id;
 }
 
-async function getExpenseById(id) {
-  await init();
-  const rs = await client.execute({
-    sql: 'SELECT id, date, description, amount, payer_id, status, receipt FROM expenses WHERE id = ?',
-    args: [id],
-  });
-  if (rs.rows.length === 0) return null;
-  const r = rs.rows[0];
-  return {
-    id: r.id,
-    date: r.date,
-    description: r.description,
-    amount: r.amount,
-    payerId: r.payer_id,
-    status: r.status,
-    receipt: r.receipt || null,
-  };
-}
-
 async function setExpenseStatus(id, status) {
   await init();
   const rs = await client.execute({ sql: 'UPDATE expenses SET status = ? WHERE id = ?', args: [status, id] });
@@ -248,13 +224,14 @@ async function expenseExists(id) {
 
 async function deleteExpense(id) {
   await init();
-  await client.batch(
+  const results = await client.batch(
     [
       { sql: 'DELETE FROM expense_shares WHERE expense_id = ?', args: [id] },
       { sql: 'DELETE FROM expenses WHERE id = ?', args: [id] },
     ],
     'write'
   );
+  return results[1].rowsAffected > 0;
 }
 
 async function getSettlements() {
@@ -280,17 +257,6 @@ async function addSettlement({ date, fromId, toId, amount, status = 'approved' }
     args: [id, date, fromId, toId, amount, status],
   });
   return id;
-}
-
-async function getSettlementById(id) {
-  await init();
-  const rs = await client.execute({
-    sql: 'SELECT id, date, from_id, to_id, amount, status FROM settlements WHERE id = ?',
-    args: [id],
-  });
-  if (rs.rows.length === 0) return null;
-  const r = rs.rows[0];
-  return { id: r.id, date: r.date, fromId: r.from_id, toId: r.to_id, amount: r.amount, status: r.status };
 }
 
 async function setSettlementStatus(id, status) {
@@ -325,20 +291,17 @@ module.exports = {
   getMembers,
   addMember,
   renameMember,
-  memberExists,
   memberIsReferenced,
   deleteMember,
   getExpenses,
   addExpense,
   updateExpense,
   expenseExists,
-  getExpenseById,
   getExpenseReceipt,
   setExpenseStatus,
   deleteExpense,
   getSettlements,
   addSettlement,
-  getSettlementById,
   setSettlementStatus,
   resetData,
   getState,

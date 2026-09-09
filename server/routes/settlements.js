@@ -57,9 +57,9 @@ router.post(
   '/settlement-requests/:id/approve',
   requireAdmin,
   asyncRoute(async (req, res) => {
-    const s = await db.getSettlementById(req.params.id);
-    if (!s) return res.status(404).json({ error: 'Không tìm thấy yêu cầu thanh toán' });
-    await db.setSettlementStatus(req.params.id, 'approved');
+    // Gộp kiểm tra tồn tại + ghi vào 1 round-trip (xem lý do ở expenses.js).
+    const ok = await db.setSettlementStatus(req.params.id, 'approved');
+    if (!ok) return res.status(404).json({ error: 'Không tìm thấy yêu cầu thanh toán' });
     res.json(await buildState(req));
   })
 );
@@ -68,9 +68,8 @@ router.post(
   '/settlement-requests/:id/reject',
   requireAdmin,
   asyncRoute(async (req, res) => {
-    const s = await db.getSettlementById(req.params.id);
-    if (!s) return res.status(404).json({ error: 'Không tìm thấy yêu cầu thanh toán' });
-    await db.setSettlementStatus(req.params.id, 'rejected');
+    const ok = await db.setSettlementStatus(req.params.id, 'rejected');
+    if (!ok) return res.status(404).json({ error: 'Không tìm thấy yêu cầu thanh toán' });
     res.json(await buildState(req));
   })
 );

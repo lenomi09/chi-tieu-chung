@@ -36,9 +36,10 @@ router.delete(
   requireAdmin,
   asyncRoute(async (req, res) => {
     const id = req.params.id;
-    const exists = await db.memberExists(id);
-    if (!exists) return res.status(404).json({ error: 'Không tìm thấy thành viên' });
-
+    // Bỏ bước kiểm tra tồn tại riêng — memberIsReferenced() với id không tồn
+    // tại tự nhiên trả về false (không khớp dòng nào), và deleteMember() tự
+    // báo lại có xoá được dòng nào không — dựa vào đó suy ra 404, khỏi cần
+    // round-trip SELECT tồn tại riêng.
     const referenced = await db.memberIsReferenced(id);
     if (referenced) {
       return res.status(400).json({
@@ -46,7 +47,8 @@ router.delete(
       });
     }
 
-    await db.deleteMember(id);
+    const ok = await db.deleteMember(id);
+    if (!ok) return res.status(404).json({ error: 'Không tìm thấy thành viên' });
     res.json(await buildState(req));
   })
 );
