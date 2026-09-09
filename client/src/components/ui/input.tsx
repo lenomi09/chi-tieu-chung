@@ -8,7 +8,9 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(({ className, type,
     <input
       type={type}
       className={cn(
-        'flex h-9 w-full min-w-0 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-[color,box-shadow,border-color] outline-none',
+        // text-base (16px) trên mobile — iOS Safari tự phóng to trang khi bấm
+        // vào input có font-size < 16px, từ sm trở lên trả về text-sm như cũ.
+        'flex h-9 w-full min-w-0 rounded-md border border-input bg-background px-3 py-1 text-base shadow-sm transition-[color,box-shadow,border-color] outline-none sm:text-sm',
         'placeholder:text-muted-foreground',
         'file:border-0 file:bg-transparent file:text-sm file:font-medium',
         'hover:border-foreground/30',
