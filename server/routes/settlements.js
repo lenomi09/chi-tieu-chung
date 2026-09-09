@@ -74,4 +74,14 @@ router.post(
   })
 );
 
+router.delete(
+  '/settlements/:id',
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    const ok = await db.deleteSettlement(req.params.id);
+    if (!ok) return res.status(404).json({ error: 'Không tìm thấy thanh toán' });
+    res.json(await buildState(req));
+  })
+);
+
 module.exports = router;

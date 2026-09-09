@@ -265,6 +265,12 @@ async function setSettlementStatus(id, status) {
   return rs.rowsAffected > 0;
 }
 
+async function deleteSettlement(id) {
+  await init();
+  const rs = await client.execute({ sql: 'DELETE FROM settlements WHERE id = ?', args: [id] });
+  return rs.rowsAffected > 0;
+}
+
 async function resetData() {
   await init();
   await client.batch(
@@ -303,6 +309,7 @@ module.exports = {
   getSettlements,
   addSettlement,
   setSettlementStatus,
+  deleteSettlement,
   resetData,
   getState,
   closeDb,

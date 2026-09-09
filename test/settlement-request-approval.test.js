@@ -127,3 +127,35 @@ test('yêu cầu ghi nhận đã trả nợ: pending không tính, admin duyệt
   const rejectedEntry = afterReject.settlements.find((s) => s.id === pendingId2);
   assert.equal(rejectedEntry.status, 'rejected');
 });
+
+test('xoá thanh toán: admin xoá được (kể cả đã duyệt), người ngoài không được, id không tồn tại trả 404', async () => {
+  const { cookie } = await api('/api/login', { method: 'POST', body: { password: 'test-password' } });
+  const addMember = async (name) => {
+    const r = await api('/api/members', { method: 'POST', cookie, body: { name } });
+    return r.data.members.find((m) => m.name === name).id;
+  };
+  const an = await addMember('An_xoa_ttoan');
+  const binh = await addMember('Binh_xoa_ttoan');
+
+  const created = await api('/api/settlements', {
+    method: 'POST',
+    cookie,
+    body: { date: '2026-09-07', fromId: an, toId: binh, amount: 20000 },
+  });
+  const id = created.data.settlements.find((s) => s.fromId === an && s.toId === binh).id;
+  assert.equal(created.data.settlements.find((s) => s.id === id).status, 'approved');
+
+  const forbidden = await api(`/api/settlements/${id}`, { method: 'DELETE' });
+  assert.equal(forbidden.status, 401, 'người ngoài không được xoá');
+
+  const notFound = await api('/api/settlements/khong-ton-tai', { method: 'DELETE', cookie });
+  assert.equal(notFound.status, 404);
+
+  const deleted = await api(`/api/settlements/${id}`, { method: 'DELETE', cookie });
+  assert.equal(deleted.status, 200);
+  assert.equal(
+    deleted.data.settlements.some((s) => s.id === id),
+    false,
+    'thanh toán đã duyệt vẫn xoá được và biến mất khỏi state'
+  );
+});

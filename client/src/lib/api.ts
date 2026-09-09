@@ -65,6 +65,7 @@ export const api = {
     request<AppState>(`/api/settlement-requests/${id}/approve`, { method: 'POST' }),
   rejectSettlementRequest: (id: string) =>
     request<AppState>(`/api/settlement-requests/${id}/reject`, { method: 'POST' }),
+  deleteSettlement: (id: string) => request<AppState>(`/api/settlements/${id}`, { method: 'DELETE' }),
 
   reset: () => request<AppState>('/api/reset', { method: 'POST' }),
 }
