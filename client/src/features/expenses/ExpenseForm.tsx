@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CalendarDays } from 'lucide-react'
-import { useState } from 'react'
+import { CalendarDays, Plus, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -16,7 +16,7 @@ import type { Expense, ExpensePayload, Member } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { ReceiptUpload } from './ReceiptUpload'
 import { type ExpenseFormValues, expenseFormSchema } from './schema'
-import { parseSumExpression } from './shareUtils'
+import { computeItemBasedShares, parseSumExpression, type SplitItem } from './shareUtils'
 
 interface ExpenseFormProps {
   members: Member[]
@@ -67,7 +67,6 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
     defaultValues: buildDefaultValues(members, expense),
   })
 
-  const splitMode = useWatch({ control, name: 'splitMode' })
   const payerId = useWatch({ control, name: 'payerId' })
   const shareMemberIds = useWatch({ control, name: 'shareMemberIds' }) ?? []
   const shareAmounts = useWatch({ control, name: 'shareAmounts' }) ?? {}
@@ -93,6 +92,77 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
     setShareAmountText((prev) => ({ ...prev, [id]: raw }))
     setValue(`shareAmounts.${id}`, parseSumExpression(raw), { shouldValidate: true })
   }
+
+  // "Chia theo món": lớp giao diện phủ lên trên "Chia riêng" (splitMode vẫn
+  // là 'custom' khi submit — không đổi backend/schema). Người dùng khai báo
+  // từng món + ai ăn chung, phần còn lại tự chia đều cho tất cả — hệ thống
+  // tự tính ra shareAmounts cuối cùng và điền vào y hệt như đang gõ tay.
+  const [splitUiMode, setSplitUiMode] = useState<'equal' | 'custom' | 'byItem'>(
+    expense?.shareAmounts ? 'custom' : 'equal'
+  )
+  const [items, setItems] = useState<SplitItem[]>([])
+  const itemIdCounter = useRef(0)
+  // Ai nhận "phần còn lại" (số tiền không thuộc món nào) — mặc định là tất cả
+  // "Chia cho", nhưng có thể thu hẹp lại (vd: có món chia đều cho tất cả,
+  // còn phần còn lại chỉ chia cho 1 nhóm nhỏ hơn, không phải ai cũng nhận).
+  // Chỉ tự đồng bộ theo "Chia cho" khi người dùng CHƯA tự tay chỉnh danh
+  // sách này — tránh xoá mất lựa chọn thu hẹp của họ mỗi khi tick/bỏ tick
+  // "Chia cho" ở trên.
+  const [remainingMemberIds, setRemainingMemberIds] = useState<string[]>(shareMemberIds)
+  const remainingTouched = useRef(false)
+
+  useEffect(() => {
+    if (remainingTouched.current) {
+      setRemainingMemberIds((prev) => prev.filter((id) => shareMemberIds.includes(id)))
+    } else {
+      setRemainingMemberIds(shareMemberIds)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shareMemberIds])
+
+  const toggleRemainingMember = (memberId: string, checked: boolean) => {
+    remainingTouched.current = true
+    setRemainingMemberIds((prev) => (checked ? [...prev, memberId] : prev.filter((id) => id !== memberId)))
+  }
+
+  const addItem = () => {
+    itemIdCounter.current += 1
+    setItems((prev) => [...prev, { id: `item-${itemIdCounter.current}`, name: '', amountText: '', memberIds: [] }])
+  }
+  const removeItem = (id: string) => setItems((prev) => prev.filter((it) => it.id !== id))
+  const updateItemName = (id: string, name: string) =>
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, name } : it)))
+  const updateItemAmount = (id: string, amountText: string) =>
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, amountText } : it)))
+  const toggleItemMember = (itemId: string, memberId: string, checked: boolean) =>
+    setItems((prev) =>
+      prev.map((it) =>
+        it.id === itemId
+          ? {
+              ...it,
+              memberIds: checked ? [...it.memberIds, memberId] : it.memberIds.filter((id) => id !== memberId),
+            }
+          : it
+      )
+    )
+
+  const itemsTotal = items.reduce((sum, it) => sum + parseSumExpression(it.amountText), 0)
+  const remainingForItems = Math.round((Number(amount) || 0) - itemsTotal)
+
+  // Mỗi khi món/số tiền/danh sách chia thay đổi ở chế độ "Chia theo món", tự
+  // tính lại shareAmounts và điền vào form — dùng chung 1 đường lưu dữ liệu
+  // với "Chia riêng" thủ công nên không cần đổi gì ở validate/submit/backend.
+  useEffect(() => {
+    if (splitUiMode !== 'byItem') return
+    const computed = computeItemBasedShares(items, remainingMemberIds, shareMemberIds, Number(amount) || 0)
+    const text: Record<string, string> = {}
+    for (const id of shareMemberIds) {
+      setValue(`shareAmounts.${id}`, computed[id] ?? 0, { shouldValidate: false })
+      text[id] = String(computed[id] ?? 0)
+    }
+    setShareAmountText(text)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [splitUiMode, items, remainingMemberIds, shareMemberIds, amount])
 
   const toggleMember = (id: string, checked: boolean) => {
     const next = checked ? [...shareMemberIds, id] : shareMemberIds.filter((m) => m !== id)
@@ -136,6 +206,10 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
       }
       reset(buildDefaultValues(members, null))
       setShareAmountText({})
+      setSplitUiMode('equal')
+      setItems([])
+      remainingTouched.current = false
+      setRemainingMemberIds(members.map((m) => m.id))
       onDone?.()
     } catch (err) {
       setError('root', { message: err instanceof ApiError ? err.message : 'Không lưu được khoản chi' })
@@ -250,35 +324,169 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Label id="expense-split-mode-label">Cách chia</Label>
           <div role="group" aria-labelledby="expense-split-mode-label" className="flex gap-1 rounded-md border border-input bg-background p-0.5">
             <button
               type="button"
-              onClick={() => setValue('splitMode', 'equal')}
-              aria-pressed={splitMode === 'equal'}
+              onClick={() => {
+                setSplitUiMode('equal')
+                setValue('splitMode', 'equal')
+              }}
+              aria-pressed={splitUiMode === 'equal'}
               className={cn(
                 'rounded px-2.5 py-1 text-xs transition-colors',
-                splitMode === 'equal' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
+                splitUiMode === 'equal' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
               )}
             >
               Chia đều
             </button>
             <button
               type="button"
-              onClick={() => setValue('splitMode', 'custom')}
-              aria-pressed={splitMode === 'custom'}
+              onClick={() => {
+                setSplitUiMode('custom')
+                setValue('splitMode', 'custom')
+              }}
+              aria-pressed={splitUiMode === 'custom'}
               className={cn(
                 'rounded px-2.5 py-1 text-xs transition-colors',
-                splitMode === 'custom' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
+                splitUiMode === 'custom' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
               )}
             >
               Chia riêng
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSplitUiMode('byItem')
+                setValue('splitMode', 'custom')
+              }}
+              aria-pressed={splitUiMode === 'byItem'}
+              className={cn(
+                'rounded px-2.5 py-1 text-xs transition-colors',
+                splitUiMode === 'byItem' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
+              )}
+            >
+              Chia theo món
+            </button>
           </div>
         </div>
 
-        {splitMode === 'custom' && (
+        {splitUiMode === 'byItem' && (
+          <div className="flex flex-col gap-2 border-t border-input pt-3">
+            {shareMemberIds.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Chọn người chia ở trên trước.</p>
+            ) : (
+              <>
+                <div className="flex flex-col gap-2">
+                  {items.map((item, idx) => (
+                    <div key={item.id} className="flex flex-col gap-1.5 rounded-md border border-input bg-background p-2">
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          placeholder={`Món ${idx + 1} (không bắt buộc)`}
+                          className="h-8 flex-1"
+                          aria-label={`Tên món ${idx + 1}`}
+                          value={item.name}
+                          onChange={(e) => updateItemName(item.id, e.target.value)}
+                        />
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="Số tiền"
+                          className="h-8 w-28 shrink-0"
+                          aria-label={`Số tiền món ${idx + 1}`}
+                          value={item.amountText}
+                          onChange={(e) => updateItemAmount(item.id, e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeItem(item.id)}
+                          aria-label={`Xoá món ${idx + 1}`}
+                          className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring/40"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-x-1 gap-y-1">
+                        {members
+                          .filter((m) => shareMemberIds.includes(m.id))
+                          .map((m) => {
+                            const checked = item.memberIds.includes(m.id)
+                            return (
+                              <label
+                                key={m.id}
+                                className="flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-xs hover:bg-accent/50"
+                              >
+                                <Checkbox
+                                  className="size-3.5"
+                                  checked={checked}
+                                  onCheckedChange={(v) => toggleItemMember(item.id, m.id, v === true)}
+                                />
+                                <span className="truncate">{m.name}</span>
+                              </label>
+                            )
+                          })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={addItem}
+                  className="flex items-center gap-1 self-start rounded px-1.5 py-1 text-xs text-primary outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/40"
+                >
+                  <Plus className="size-3.5" />
+                  Thêm món
+                </button>
+
+                {/* Phần tiền không thuộc món nào — mặc định chia đều cho tất
+                    cả "Chia cho", nhưng thu hẹp được (vd: 1 món chia đều cho
+                    tất cả, còn phần dư chỉ chia cho vài người, không phải
+                    ai cũng nhận phần dư). */}
+                <div className="flex flex-col gap-1.5 rounded-md border border-dashed border-input bg-background p-2">
+                  <p className={cn('text-xs font-medium', remainingForItems < 0 ? 'text-destructive' : 'text-foreground')}>
+                    {remainingForItems < 0
+                      ? `Tổng các món vượt quá tổng tiền ${formatCurrency(Math.abs(remainingForItems))}`
+                      : `Phần còn lại: ${formatCurrency(remainingForItems)} — chia cho`}
+                  </p>
+                  {remainingForItems >= 0 && (
+                    <div className="flex flex-wrap gap-x-1 gap-y-1">
+                      {members
+                        .filter((m) => shareMemberIds.includes(m.id))
+                        .map((m) => {
+                          const checked = remainingMemberIds.includes(m.id)
+                          return (
+                            <label
+                              key={m.id}
+                              className="flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-xs hover:bg-accent/50"
+                            >
+                              <Checkbox
+                                className="size-3.5"
+                                checked={checked}
+                                onCheckedChange={(v) => toggleRemainingMember(m.id, v === true)}
+                              />
+                              <span className="truncate">{m.name}</span>
+                            </label>
+                          )
+                        })}
+                    </div>
+                  )}
+                  {remainingForItems > 0 && remainingMemberIds.length === 0 && (
+                    <p className="text-xs text-destructive">Chọn ít nhất 1 người nhận phần còn lại.</p>
+                  )}
+                </div>
+
+                {errors.shareAmounts?.message && (
+                  <p role="alert" className="text-xs text-destructive">
+                    {String(errors.shareAmounts.message)}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {splitUiMode === 'custom' && (
           <div className="flex flex-col gap-2 border-t border-input pt-3">
             {shareMemberIds.length === 0 ? (
               <p className="text-xs text-muted-foreground">Chọn người chia ở trên trước.</p>
