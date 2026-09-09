@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CalendarDays, Plus, Trash2 } from 'lucide-react'
+import { CalendarDays, CheckCircle2, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -17,6 +17,8 @@ import { cn } from '@/lib/utils'
 import { ReceiptUpload } from './ReceiptUpload'
 import { type ExpenseFormValues, expenseFormSchema } from './schema'
 import { computeItemBasedShares, parseSumExpression, type SplitItem } from './shareUtils'
+
+const MEMBER_PICKER_GRID = 'grid grid-cols-2 gap-x-2 gap-y-0.5 sm:grid-cols-4'
 
 interface ExpenseFormProps {
   members: Member[]
@@ -76,32 +78,20 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
   const customTotal = shareMemberIds.reduce((sum, id) => sum + (Number(shareAmounts[id]) || 0), 0)
   const remaining = Math.round((Number(amount) || 0) - customTotal)
 
-  // Chữ ngươi dùng gõ trong ô "chia riêng" (vd "7000+7000") — tách khỏi giá trị
-  // số thật sự lưu vào form, vì input number sẽ tự xoá "+" và trả về rỗng.
-  const [shareAmountText, setShareAmountText] = useState<Record<string, string>>(() => {
-    const initial: Record<string, string> = {}
-    if (expense?.shareAmounts) {
-      for (const [id, amt] of Object.entries(expense.shareAmounts)) {
-        initial[id] = String(amt)
-      }
-    }
-    return initial
-  })
-
-  const handleShareAmountChange = (id: string, raw: string) => {
-    setShareAmountText((prev) => ({ ...prev, [id]: raw }))
-    setValue(`shareAmounts.${id}`, parseSumExpression(raw), { shouldValidate: true })
-  }
-
-  // "Chia theo món": lớp giao diện phủ lên trên "Chia riêng" (splitMode vẫn
-  // là 'custom' khi submit — không đổi backend/schema). Người dùng khai báo
-  // từng món + ai ăn chung, phần còn lại tự chia đều cho tất cả — hệ thống
-  // tự tính ra shareAmounts cuối cùng và điền vào y hệt như đang gõ tay.
-  const [splitUiMode, setSplitUiMode] = useState<'equal' | 'custom' | 'byItem'>(
-    expense?.shareAmounts ? 'custom' : 'equal'
-  )
+  // "Chia theo món": splitMode vẫn là 'custom' khi submit — không đổi
+  // backend/schema. Người dùng khai báo từng món + ai ăn chung, phần còn
+  // lại tự chia đều cho nhóm chọn — hệ thống tự tính ra shareAmounts cuối
+  // cùng và điền vào form.
+  const editingExistingCustom = !!expense?.shareAmounts
+  const [splitUiMode, setSplitUiMode] = useState<'equal' | 'byItem'>(editingExistingCustom ? 'byItem' : 'equal')
   const [items, setItems] = useState<SplitItem[]>([])
   const itemIdCounter = useRef(0)
+  // Sửa 1 khoản chi đã có sẵn shareAmounts (chia riêng/chia theo món từ
+  // trước) — không tự tính lại (sẽ ghi đè mất số cũ) cho tới khi người dùng
+  // thật sự thao tác gì đó ở "Chia theo món" (thêm/xoá món, đổi ai nhận
+  // phần còn lại,...). Khoản chi mới thì tính ngay từ đầu vì chưa có gì để mất.
+  const byItemTouched = useRef(!editingExistingCustom)
+
   // Ai nhận "phần còn lại" (số tiền không thuộc món nào) — mặc định là tất cả
   // "Chia cho", nhưng có thể thu hẹp lại (vd: có món chia đều cho tất cả,
   // còn phần còn lại chỉ chia cho 1 nhóm nhỏ hơn, không phải ai cũng nhận).
@@ -122,19 +112,28 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
 
   const toggleRemainingMember = (memberId: string, checked: boolean) => {
     remainingTouched.current = true
+    remainingTouched.current = true
+    byItemTouched.current = true
     setRemainingMemberIds((prev) => (checked ? [...prev, memberId] : prev.filter((id) => id !== memberId)))
   }
 
   const addItem = () => {
+    byItemTouched.current = true
     itemIdCounter.current += 1
     setItems((prev) => [...prev, { id: `item-${itemIdCounter.current}`, name: '', amountText: '', memberIds: [] }])
   }
-  const removeItem = (id: string) => setItems((prev) => prev.filter((it) => it.id !== id))
+  const removeItem = (id: string) => {
+    byItemTouched.current = true
+    setItems((prev) => prev.filter((it) => it.id !== id))
+  }
   const updateItemName = (id: string, name: string) =>
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, name } : it)))
-  const updateItemAmount = (id: string, amountText: string) =>
+  const updateItemAmount = (id: string, amountText: string) => {
+    byItemTouched.current = true
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, amountText } : it)))
-  const toggleItemMember = (itemId: string, memberId: string, checked: boolean) =>
+  }
+  const toggleItemMember = (itemId: string, memberId: string, checked: boolean) => {
+    byItemTouched.current = true
     setItems((prev) =>
       prev.map((it) =>
         it.id === itemId
@@ -145,22 +144,21 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
           : it
       )
     )
+  }
 
   const itemsTotal = items.reduce((sum, it) => sum + parseSumExpression(it.amountText), 0)
   const remainingForItems = Math.round((Number(amount) || 0) - itemsTotal)
 
   // Mỗi khi món/số tiền/danh sách chia thay đổi ở chế độ "Chia theo món", tự
-  // tính lại shareAmounts và điền vào form — dùng chung 1 đường lưu dữ liệu
-  // với "Chia riêng" thủ công nên không cần đổi gì ở validate/submit/backend.
+  // tính lại shareAmounts và điền vào form. Bỏ qua nếu đang sửa 1 khoản chi
+  // có sẵn số chia riêng mà người dùng chưa thật sự đụng vào "Chia theo
+  // món" — tránh ghi đè mất số cũ chỉ vì mở form sửa lên xem.
   useEffect(() => {
-    if (splitUiMode !== 'byItem') return
+    if (splitUiMode !== 'byItem' || !byItemTouched.current) return
     const computed = computeItemBasedShares(items, remainingMemberIds, shareMemberIds, Number(amount) || 0)
-    const text: Record<string, string> = {}
     for (const id of shareMemberIds) {
       setValue(`shareAmounts.${id}`, computed[id] ?? 0, { shouldValidate: false })
-      text[id] = String(computed[id] ?? 0)
     }
-    setShareAmountText(text)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [splitUiMode, items, remainingMemberIds, shareMemberIds, amount])
 
@@ -205,9 +203,9 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
         await mutate(() => api.addExpenseRequest(payload))
       }
       reset(buildDefaultValues(members, null))
-      setShareAmountText({})
       setSplitUiMode('equal')
       setItems([])
+      byItemTouched.current = true
       remainingTouched.current = false
       setRemainingMemberIds(members.map((m) => m.id))
       onDone?.()
@@ -344,20 +342,7 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
             <button
               type="button"
               onClick={() => {
-                setSplitUiMode('custom')
-                setValue('splitMode', 'custom')
-              }}
-              aria-pressed={splitUiMode === 'custom'}
-              className={cn(
-                'rounded px-2.5 py-1 text-xs transition-colors',
-                splitUiMode === 'custom' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
-              )}
-            >
-              Chia riêng
-            </button>
-            <button
-              type="button"
-              onClick={() => {
+                byItemTouched.current = true
                 setSplitUiMode('byItem')
                 setValue('splitMode', 'custom')
               }}
@@ -407,7 +392,7 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
                           <Trash2 className="size-3.5" />
                         </button>
                       </div>
-                      <div className="flex flex-wrap gap-x-1 gap-y-1">
+                      <div className={MEMBER_PICKER_GRID}>
                         {members
                           .filter((m) => shareMemberIds.includes(m.id))
                           .map((m) => {
@@ -415,7 +400,7 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
                             return (
                               <label
                                 key={m.id}
-                                className="flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-xs hover:bg-accent/50"
+                                className="flex cursor-pointer items-center gap-1.5 rounded px-1.5 py-0.5 text-xs hover:bg-accent/50"
                               >
                                 <Checkbox
                                   className="size-3.5"
@@ -450,7 +435,7 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
                       : `Phần còn lại: ${formatCurrency(remainingForItems)} — chia cho`}
                   </p>
                   {remainingForItems >= 0 && (
-                    <div className="flex flex-wrap gap-x-1 gap-y-1">
+                    <div className={MEMBER_PICKER_GRID}>
                       {members
                         .filter((m) => shareMemberIds.includes(m.id))
                         .map((m) => {
@@ -458,7 +443,7 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
                           return (
                             <label
                               key={m.id}
-                              className="flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-xs hover:bg-accent/50"
+                              className="flex cursor-pointer items-center gap-1.5 rounded px-1.5 py-0.5 text-xs hover:bg-accent/50"
                             >
                               <Checkbox
                                 className="size-3.5"
@@ -476,63 +461,28 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
                   )}
                 </div>
 
+                {/* Khớp tổng: dùng shareAmounts thật đã điền vào form (customTotal/
+                    remaining), không phải remainingForItems — để phản ánh đúng cả
+                    trường hợp đang sửa khoản chi cũ mà chưa đụng vào "Chia theo
+                    món" (byItemTouched=false, số cũ vẫn giữ nguyên). */}
+                <p
+                  className={cn(
+                    'flex items-center gap-1 text-xs',
+                    remaining === 0 ? 'text-success' : 'text-muted-foreground'
+                  )}
+                >
+                  {remaining === 0 && <CheckCircle2 className="size-3.5 shrink-0" aria-hidden="true" />}
+                  Đã chia {formatCurrency(customTotal)} / {formatCurrency(Number(amount) || 0)}
+                  {remaining !== 0 &&
+                    ` — còn ${formatCurrency(Math.abs(remaining))} ${remaining > 0 ? 'chưa chia' : 'vượt quá'}`}
+                </p>
+
                 {errors.shareAmounts?.message && (
                   <p role="alert" className="text-xs text-destructive">
                     {String(errors.shareAmounts.message)}
                   </p>
                 )}
               </>
-            )}
-          </div>
-        )}
-
-        {splitUiMode === 'custom' && (
-          <div className="flex flex-col gap-2 border-t border-input pt-3">
-            {shareMemberIds.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Chọn người chia ở trên trước.</p>
-            ) : (
-              <div className="grid grid-cols-1 gap-x-3 gap-y-1.5 sm:grid-cols-2">
-                {members
-                  .filter((m) => shareMemberIds.includes(m.id))
-                  .map((m) => {
-                    const raw = shareAmountText[m.id] ?? ''
-                    const hasSum = raw.includes('+')
-                    return (
-                      <div key={m.id} className="flex flex-col gap-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="w-16 shrink-0 truncate text-sm">{m.name}</span>
-                          {/* type="text" chứ không phải "number" — cho phép gõ biểu thức
-                              cộng dồn kiểu "7000+7000" (mua nhiều món cùng giá); input
-                              number sẽ coi đó là giá trị không hợp lệ và tự xoá về rỗng. */}
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="0"
-                            className="h-8 bg-background"
-                            aria-label={`Số tiền ${m.name} chịu`}
-                            value={raw}
-                            onChange={(e) => handleShareAmountChange(m.id, e.target.value)}
-                          />
-                        </div>
-                        {hasSum && (
-                          <p className="pl-[4.5rem] text-[11px] text-muted-foreground">
-                            = {formatCurrency(parseSumExpression(raw))}
-                          </p>
-                        )}
-                      </div>
-                    )
-                  })}
-              </div>
-            )}
-            <p className={cn('text-xs', remaining === 0 ? 'text-success' : 'text-muted-foreground')}>
-              Đã chia {formatCurrency(customTotal)} / {formatCurrency(Number(amount) || 0)}
-              {remaining !== 0 &&
-                ` — còn ${formatCurrency(Math.abs(remaining))} ${remaining > 0 ? 'chưa chia' : 'vượt quá'}`}
-            </p>
-            {errors.shareAmounts?.message && (
-              <p role="alert" className="text-xs text-destructive">
-                {String(errors.shareAmounts.message)}
-              </p>
             )}
           </div>
         )}
