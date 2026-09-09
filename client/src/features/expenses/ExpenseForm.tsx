@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { CalendarDays } from 'lucide-react'
+import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -15,6 +16,7 @@ import type { Expense, ExpensePayload, Member } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { ReceiptUpload } from './ReceiptUpload'
 import { type ExpenseFormValues, expenseFormSchema } from './schema'
+import { parseSumExpression } from './shareUtils'
 
 interface ExpenseFormProps {
   members: Member[]
@@ -75,6 +77,23 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
   const customTotal = shareMemberIds.reduce((sum, id) => sum + (Number(shareAmounts[id]) || 0), 0)
   const remaining = Math.round((Number(amount) || 0) - customTotal)
 
+  // Chữ ngươi dùng gõ trong ô "chia riêng" (vd "7000+7000") — tách khỏi giá trị
+  // số thật sự lưu vào form, vì input number sẽ tự xoá "+" và trả về rỗng.
+  const [shareAmountText, setShareAmountText] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {}
+    if (expense?.shareAmounts) {
+      for (const [id, amt] of Object.entries(expense.shareAmounts)) {
+        initial[id] = String(amt)
+      }
+    }
+    return initial
+  })
+
+  const handleShareAmountChange = (id: string, raw: string) => {
+    setShareAmountText((prev) => ({ ...prev, [id]: raw }))
+    setValue(`shareAmounts.${id}`, parseSumExpression(raw), { shouldValidate: true })
+  }
+
   const toggleMember = (id: string, checked: boolean) => {
     const next = checked ? [...shareMemberIds, id] : shareMemberIds.filter((m) => m !== id)
     setValue('shareMemberIds', next, { shouldValidate: true })
@@ -116,6 +135,7 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
         await mutate(() => api.addExpenseRequest(payload))
       }
       reset(buildDefaultValues(members, null))
+      setShareAmountText({})
       onDone?.()
     } catch (err) {
       setError('root', { message: err instanceof ApiError ? err.message : 'Không lưu được khoản chi' })
@@ -266,25 +286,34 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
               <div className="grid grid-cols-1 gap-x-3 gap-y-1.5 sm:grid-cols-2">
                 {members
                   .filter((m) => shareMemberIds.includes(m.id))
-                  .map((m) => (
-                    <div key={m.id} className="flex items-center gap-2">
-                      <span className="w-16 shrink-0 truncate text-sm">{m.name}</span>
-                      <Input
-                        type="number"
-                        min={0}
-                        step={1000}
-                        inputMode="numeric"
-                        className="h-8 bg-background"
-                        aria-label={`Số tiền ${m.name} chịu`}
-                        value={shareAmounts[m.id] ?? ''}
-                        onChange={(e) =>
-                          setValue(`shareAmounts.${m.id}`, e.target.value === '' ? 0 : Number(e.target.value), {
-                            shouldValidate: true,
-                          })
-                        }
-                      />
-                    </div>
-                  ))}
+                  .map((m) => {
+                    const raw = shareAmountText[m.id] ?? ''
+                    const hasSum = raw.includes('+')
+                    return (
+                      <div key={m.id} className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="w-16 shrink-0 truncate text-sm">{m.name}</span>
+                          {/* type="text" chứ không phải "number" — cho phép gõ biểu thức
+                              cộng dồn kiểu "7000+7000" (mua nhiều món cùng giá); input
+                              number sẽ coi đó là giá trị không hợp lệ và tự xoá về rỗng. */}
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0"
+                            className="h-8 bg-background"
+                            aria-label={`Số tiền ${m.name} chịu`}
+                            value={raw}
+                            onChange={(e) => handleShareAmountChange(m.id, e.target.value)}
+                          />
+                        </div>
+                        {hasSum && (
+                          <p className="pl-[4.5rem] text-[11px] text-muted-foreground">
+                            = {formatCurrency(parseSumExpression(raw))}
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })}
               </div>
             )}
             <p className={cn('text-xs', remaining === 0 ? 'text-success' : 'text-muted-foreground')}>
