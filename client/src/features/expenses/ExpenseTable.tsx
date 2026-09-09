@@ -187,6 +187,14 @@ function ExpenseTable({ expenses, members, isAdmin }: ExpenseTableProps) {
     })
   }
 
+  const hasActiveFilter = search.trim() !== '' || payerFilter !== 'all' || shareFilter !== 'all' || statusFilter !== 'all'
+  const clearFilters = () => {
+    setSearch('')
+    setPayerFilter('all')
+    setShareFilter('all')
+    setStatusFilter('all')
+  }
+
   const handleBulkDelete = async () => {
     const ids = Array.from(selectedIds)
     const ok = await confirm({
@@ -258,6 +266,12 @@ function ExpenseTable({ expenses, members, isAdmin }: ExpenseTableProps) {
           </SelectContent>
         </Select>
       </div>
+
+      {hasActiveFilter && (
+        <Button type="button" variant="ghost" size="sm" className="self-start" onClick={clearFilters}>
+          Xoá bộ lọc
+        </Button>
+      )}
 
       {isAdmin && selectedIds.size > 0 && (
         <div className="flex items-center justify-between gap-2 rounded-lg border bg-accent/40 px-3 py-2">

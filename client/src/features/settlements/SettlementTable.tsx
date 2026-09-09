@@ -173,6 +173,13 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
     }
   }
 
+  const hasActiveFilter = fromFilter !== 'all' || toFilter !== 'all' || statusFilter !== 'all'
+  const clearFilters = () => {
+    setFromFilter('all')
+    setToFilter('all')
+    setStatusFilter('all')
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -215,6 +222,12 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
         </Select>
       </div>
 
+      {hasActiveFilter && (
+        <Button type="button" variant="ghost" size="sm" className="self-start" onClick={clearFilters}>
+          Xoá bộ lọc
+        </Button>
+      )}
+
       {isAdmin && selectedIds.size > 0 && (
         <div className="flex items-center justify-between gap-2 rounded-lg border bg-accent/40 px-3 py-2">
           <span className="text-sm font-medium">Đã chọn {selectedIds.size} thanh toán</span>
@@ -231,7 +244,9 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
       )}
 
       {isAdmin && pageItems.length > 0 && (
-        <label className="flex w-fit cursor-pointer items-center gap-1.5 px-1 text-xs text-muted-foreground">
+        // pl-[13px] khớp đúng vị trí ô tích ở mỗi dòng bên dưới: border (1px)
+        // + p-3 (12px) của khối dòng = 13px tính từ mép trái.
+        <label className="flex w-fit cursor-pointer items-center gap-1.5 py-1 pl-[13px] text-xs text-muted-foreground">
           <Checkbox
             checked={pageIdsAllSelected}
             onCheckedChange={(v) => toggleSelectAllOnPage(v === true)}
