@@ -115,10 +115,6 @@ function AppShell() {
       <Card>
         <CardHeader>
           <CardTitle>Lịch sử thanh toán</CardTitle>
-          <CardDescription>
-            Để ghi nhận đã trả nợ, bấm vào người đó ở mục "Tổng kết" rồi bấm nút trên dòng nợ tương ứng —
-            số tiền luôn khớp đúng, không cần nhập tay.
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <SettlementTable settlements={state.settlements} members={state.members} isAdmin={isAdmin} />

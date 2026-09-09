@@ -45,7 +45,7 @@ function ExpenseRowActions({ expense, isAdmin }: { expense: Expense; isAdmin: bo
   if (!isAdmin) return null
 
   return (
-    <div className="flex items-center justify-end gap-1">
+    <div className="flex items-center justify-end gap-1" onClick={(ev) => ev.stopPropagation()}>
       {expense.status === 'pending' && (
         <>
           <Button
@@ -373,7 +373,7 @@ function ExpenseTable({ expenses, members, isAdmin }: ExpenseTableProps) {
                   </div>
                   <span className={cn('shrink-0 font-medium')}>{formatCurrency(e.amount)}</span>
                 </div>
-                <div className="mt-2 flex items-center justify-between" onClick={(ev) => ev.stopPropagation()}>
+                <div className="mt-2 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <ExpenseStatusBadge status={e.status} />
                     {e.receipt && (
@@ -382,7 +382,10 @@ function ExpenseTable({ expenses, members, isAdmin }: ExpenseTableProps) {
                         variant="ghost"
                         className="h-7 w-7"
                         aria-label="Xem ảnh bill"
-                        onClick={() => setBillSrc(e.receipt)}
+                        onClick={(ev) => {
+                          ev.stopPropagation()
+                          setBillSrc(e.receipt)
+                        }}
                       >
                         <ImageIcon className="size-3.5" />
                       </Button>
