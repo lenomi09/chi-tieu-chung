@@ -31,10 +31,18 @@ const DialogContent = React.forwardRef<
   <DialogPortal>
     <DialogOverlay />
     {/* Content chỉ lo việc định vị (fixed, phủ kín màn hình, căn giữa bằng
-        flex) — KHÔNG tự cuộn. Hộp thoại thật sự (có overflow-y-auto) nằm ở
-        div con bên trong. Gộp chung fixed + overflow-y-auto trên cùng 1 phần
-        tử là nguyên nhân Safari iOS "kéo trôi" cả hộp thoại theo ngón tay khi
-        cuộn nội dung dài bên trong — tách ra 2 lớp thì không còn bị nữa. */}
+        flex) — KHÔNG tự cuộn.
+        Khối thẻ (viền/bóng đổ, div "card" bên dưới) cũng KHÔNG tự cuộn —
+        chỉ overflow-hidden để cắt góc bo tròn. Vùng cuộn thật sự nằm ở 1 div
+        con riêng (div "scroll") bên trong card.
+        Lý do tách 3 lớp: nếu để chính khối thẻ (có viền/bóng đổ nhìn thấy
+        được) vừa là fixed/căn giữa vừa tự cuộn overflow-y-auto, hiệu ứng
+        "nảy" (rubber-band overscroll) của Safari iOS khi ngón tay kéo chạm
+        biên vùng cuộn sẽ làm chính khối thẻ đó trông như bị kéo trôi theo
+        (đã xác nhận trên máy thật: viền thẻ trôi, nền tối phía sau đứng yên).
+        Cô lập vùng cuộn vào 1 div con bị "card" cha overflow-hidden che lại
+        thì khi nảy, phần vượt ra ngoài bị cắt mất — viền/bóng đổ của card
+        không còn hiển thị bị trôi nữa. */}
     <DialogPrimitive.Content
       ref={ref}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
@@ -47,11 +55,11 @@ const DialogContent = React.forwardRef<
       />
       <div
         className={cn(
-          'relative z-10 grid max-h-[85vh] w-full max-w-lg gap-4 overflow-y-auto overscroll-contain rounded-lg border bg-card p-6 text-card-foreground shadow-lg',
+          'relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border bg-card p-6 text-card-foreground shadow-lg',
           className
         )}
       >
-        {children}
+        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto overscroll-contain">{children}</div>
         {!hideClose && (
           <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 outline-none transition-opacity hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/40 disabled:pointer-events-none">
             <X className="size-4" />
