@@ -55,11 +55,17 @@ const DialogContent = React.forwardRef<
       />
       <div
         className={cn(
-          'relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border bg-card p-6 text-card-foreground shadow-lg',
+          'relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border bg-card text-card-foreground shadow-lg',
           className
         )}
       >
-        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto overscroll-contain">{children}</div>
+        {/* Thanh cuộn phải nằm sát mép ngoài của thẻ (div này), không bị thụt
+            vào theo khoảng đệm (padding) của nội dung — nên padding đặt ở div
+            con bên trong (div nội dung), còn div cuộn ở đây không có padding
+            riêng, chiếm trọn bề ngang của thẻ. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div className={cn('grid gap-4 p-6', className)}>{children}</div>
+        </div>
         {!hideClose && (
           <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 outline-none transition-opacity hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/40 disabled:pointer-events-none">
             <X className="size-4" />

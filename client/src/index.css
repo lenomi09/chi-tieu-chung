@@ -116,14 +116,16 @@
   }
 }
 
-/* Safari/iOS không chịu giãn input[type=date] theo class "flex w-full" dùng
-   chung với input khác (control gốc của trình duyệt, có shadow DOM riêng),
-   khiến ô Ngày bị ngắn hơn hẳn các ô nhập bên dưới trên mobile — đã thử đặt
-   trong @layer base ở lần sửa trước nhưng KHÔNG có tác dụng, vì trong CSS
-   cascade layers, class tiện ích (@layer utilities, tức .w-full/.flex của
-   Tailwind) LUÔN thắng @layer base bất kể độ ưu tiên selector. Đặt rule này
-   NẰM NGOÀI mọi @layer (unlayered) để nó chắc chắn thắng mọi class tiện ích. */
+/* Safari/iOS không chịu giãn input[type=date] theo width:100% dù đã ép bằng
+   !important + đặt ngoài mọi @layer (bản vá trước, đã lên production nhưng
+   vẫn không ăn thua) — vì input[type=date] dùng "appearance" gốc của hệ
+   điều hành để render, WebKit tự tính kích thước theo layout nội bộ của
+   widget đó (bỏ qua CSS width) khi còn giữ appearance mặc định. Phải tắt hẳn
+   appearance gốc (-webkit-appearance: none) thì Safari mới nhường lại quyền
+   tính kích thước cho CSS bình thường như 1 input chữ. */
 input[type='date'] {
+  -webkit-appearance: none !important;
+  appearance: none !important;
   display: block !important;
   width: 100% !important;
 }
