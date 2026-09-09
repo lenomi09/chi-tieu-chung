@@ -221,57 +221,59 @@ function ExpenseTable({ expenses, members, isAdmin }: ExpenseTableProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <Input
-          placeholder="Tìm theo mô tả..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          aria-label="Tìm khoản chi theo mô tả"
-        />
-        <Select value={payerFilter} onValueChange={setPayerFilter}>
-          <SelectTrigger aria-label="Lọc theo người trả">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả người trả</SelectItem>
-            {members.map((m) => (
-              <SelectItem key={m.id} value={m.id}>
-                {m.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={shareFilter} onValueChange={setShareFilter}>
-          <SelectTrigger aria-label="Lọc theo người được chia">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả người được chia</SelectItem>
-            {members.map((m) => (
-              <SelectItem key={m.id} value={m.id}>
-                {m.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger aria-label="Lọc theo trạng thái">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả trạng thái</SelectItem>
-            <SelectItem value="approved">Đã duyệt</SelectItem>
-            <SelectItem value="pending">Chờ duyệt</SelectItem>
-            <SelectItem value="rejected">Từ chối</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <Input
+            placeholder="Tìm theo mô tả..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Tìm khoản chi theo mô tả"
+          />
+          <Select value={payerFilter} onValueChange={setPayerFilter}>
+            <SelectTrigger aria-label="Lọc theo người trả">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả người trả</SelectItem>
+              {members.map((m) => (
+                <SelectItem key={m.id} value={m.id}>
+                  {m.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={shareFilter} onValueChange={setShareFilter}>
+            <SelectTrigger aria-label="Lọc theo người được chia">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả người được chia</SelectItem>
+              {members.map((m) => (
+                <SelectItem key={m.id} value={m.id}>
+                  {m.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger aria-label="Lọc theo trạng thái">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả trạng thái</SelectItem>
+              <SelectItem value="approved">Đã duyệt</SelectItem>
+              <SelectItem value="pending">Chờ duyệt</SelectItem>
+              <SelectItem value="rejected">Từ chối</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-      {hasActiveFilter && (
-        <Button type="button" variant="ghost" size="sm" className="self-start" onClick={clearFilters}>
-          Xoá bộ lọc
-        </Button>
-      )}
+        {hasActiveFilter && (
+          <Button type="button" variant="ghost" size="sm" onClick={clearFilters}>
+            Xoá bộ lọc
+          </Button>
+        )}
+      </div>
 
       {isAdmin && selectedIds.size > 0 && (
         <div className="flex items-center justify-between gap-2 rounded-lg border bg-accent/40 px-3 py-2">
