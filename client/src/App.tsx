@@ -81,7 +81,13 @@ function AppShell() {
           <CardDescription>Bấm vào 1 người để xem chi tiết nợ và ghi nhận đã trả.</CardDescription>
         </CardHeader>
         <CardContent>
-          <SummaryPanel summary={state.summary} debts={state.debts} members={state.members} isAdmin={isAdmin} />
+          <SummaryPanel
+            summary={state.summary}
+            debts={state.debts}
+            members={state.members}
+            settlements={state.settlements}
+            isAdmin={isAdmin}
+          />
         </CardContent>
       </Card>
 

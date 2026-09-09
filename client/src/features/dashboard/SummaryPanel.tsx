@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { EmptyState } from '@/components/ui/empty-state'
 import { formatCurrency } from '@/lib/format'
-import type { Debt, Member, MemberSummary } from '@/lib/types'
+import type { Debt, Member, MemberSummary, Settlement } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { MemberDebtDialog } from './MemberDebtDialog'
 
@@ -9,10 +9,11 @@ interface SummaryPanelProps {
   summary: MemberSummary[]
   debts: Debt[]
   members: Member[]
+  settlements: Settlement[]
   isAdmin: boolean
 }
 
-function SummaryPanel({ summary, debts, members, isAdmin }: SummaryPanelProps) {
+function SummaryPanel({ summary, debts, members, settlements, isAdmin }: SummaryPanelProps) {
   const [selectedMember, setSelectedMember] = React.useState<Member | null>(null)
 
   if (summary.length === 0) {
@@ -54,6 +55,7 @@ function SummaryPanel({ summary, debts, members, isAdmin }: SummaryPanelProps) {
         member={selectedMember}
         debts={debts}
         members={members}
+        settlements={settlements}
         isAdmin={isAdmin}
         onOpenChange={(open) => !open && setSelectedMember(null)}
       />
