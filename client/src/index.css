@@ -99,9 +99,14 @@
 
   /* Icon lịch mặc định của trình duyệt quá nhỏ/mờ, không style được rõ ràng —
      ẩn icon gốc đi nhưng vẫn giữ nguyên vùng bấm để mở lịch (dùng cùng với
-     icon Calendar riêng của app đè lên trên, xem ExpenseForm). */
+     icon Calendar riêng của app đè lên trên, xem ExpenseForm).
+     display: block; width: 100% ép buộc riêng vì Safari/iOS không chịu giãn
+     input[type=date] theo class "flex w-full" dùng chung cho input khác —
+     khiến ô ngày bị ngắn hơn hẳn các ô nhập bên dưới trên mobile. */
   input[type='date'] {
     position: relative;
+    display: block;
+    width: 100%;
   }
   input[type='date']::-webkit-calendar-picker-indicator {
     position: absolute;
