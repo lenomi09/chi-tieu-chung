@@ -22,7 +22,7 @@ function LogoutButton() {
 
   return (
     <Button variant="outline" size="sm" onClick={handleLogout} loading={loading}>
-      <LogOut />
+      {!loading && <LogOut />}
       Đăng xuất
     </Button>
   )

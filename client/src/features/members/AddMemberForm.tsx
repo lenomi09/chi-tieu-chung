@@ -49,7 +49,7 @@ function AddMemberForm() {
           )}
         </div>
         <Button type="submit" loading={isSubmitting}>
-          <UserPlus />
+          {!isSubmitting && <UserPlus />}
           Thêm
         </Button>
       </div>

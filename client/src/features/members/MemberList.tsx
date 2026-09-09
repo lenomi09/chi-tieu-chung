@@ -66,7 +66,7 @@ function MemberRow({ member, isAdmin }: { member: Member; isAdmin: boolean }) {
             {...register('name')}
           />
           <Button type="submit" size="icon" variant="ghost" className="h-8 w-8 shrink-0" loading={isSubmitting}>
-            <Check className="text-success" />
+            {!isSubmitting && <Check className="text-success" />}
             <span className="sr-only">Lưu</span>
           </Button>
           <Button

@@ -267,7 +267,7 @@ function ExpenseTable({ expenses, members, isAdmin }: ExpenseTableProps) {
               Bỏ chọn
             </Button>
             <Button type="button" variant="destructive" size="sm" loading={bulkDeleting} onClick={handleBulkDelete}>
-              <Trash2 />
+              {!bulkDeleting && <Trash2 />}
               Xoá đã chọn
             </Button>
           </div>

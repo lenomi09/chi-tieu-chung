@@ -69,7 +69,9 @@ function DebtRow({ debt, fromName, toName, isAdmin, isPending }: DebtRowProps) {
           </span>
         ) : (
           <Button type="button" size="sm" variant="outline" loading={busy} onClick={handleSettle}>
-            <CheckCircle2 />
+            {/* Lúc loading, Button tự thêm icon xoay riêng — không hiện thêm
+                dấu tích ở đây nữa kẻo 2 icon chồng nhau. */}
+            {!busy && <CheckCircle2 />}
             {isAdmin ? 'Đã trả' : 'Báo đã trả'}
           </Button>
         )}
