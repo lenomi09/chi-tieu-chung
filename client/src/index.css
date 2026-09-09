@@ -86,6 +86,13 @@
   }
   html {
     color-scheme: light;
+    /* Luôn chừa sẵn chỗ cho thanh cuộn dọc — nếu không, lúc mở modal (bị
+       khoá cuộn) thanh cuộn biến mất, trang giãn rộng thêm đúng bằng bề
+       rộng thanh cuộn, làm nội dung phía sau bị "nhảy"/dịch chuyển. Luôn
+       hiện sẵn (dù trang ngắn không cần cuộn) thì bề rộng không đổi giữa
+       lúc đóng/mở modal. Không ảnh hưởng mobile vì trình duyệt di động
+       dùng thanh cuộn nổi, không chiếm chỗ layout. */
+    overflow-y: scroll;
   }
   html.dark {
     color-scheme: dark;
