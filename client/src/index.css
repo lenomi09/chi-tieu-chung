@@ -1,116 +1,83 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@custom-variant dark (&:where(.dark, .dark *));
-
-/* Dùng hex/rgba thay vì oklch() — 1 số trình duyệt/WebView di động đời cũ
-   (đặc biệt WebView nhúng trong app như Zalo, Messenger...) chưa hỗ trợ hàm
-   màu oklch(), khiến toàn bộ token màu bị vô hiệu và trang hiện trắng trơn. */
+/* Dùng hex/rgb thay vì oklch() — Tailwind v4 + oklch() yêu cầu Safari 16.4+,
+   loại hẳn các máy cũ kẹt ở iOS 15 trở xuống (vd iPhone 7/7 Plus/8/X không
+   bao giờ lên được iOS 16). Hạ về Tailwind v3 + biến RGB thuần để chạy được
+   trên hầu hết mọi trình duyệt, kể cả rất cũ. */
 :root {
   --radius: 0.65rem;
 
-  --background: #fcfcf9;
-  --foreground: #15151f;
+  --background: 252 252 249;
+  --foreground: 21 21 31;
 
-  --card: #ffffff;
-  --card-foreground: #15151f;
+  --card: 255 255 255;
+  --card-foreground: 21 21 31;
 
-  --popover: #ffffff;
-  --popover-foreground: #15151f;
+  --popover: 255 255 255;
+  --popover-foreground: 21 21 31;
 
-  --primary: #8047e1;
-  --primary-foreground: #f8f8fc;
+  --primary: 128 71 225;
+  --primary-foreground: 248 248 252;
 
-  --secondary: #f1f1f8;
-  --secondary-foreground: #20202b;
+  --secondary: 241 241 248;
+  --secondary-foreground: 32 32 43;
 
-  --muted: #f1f1f8;
-  --muted-foreground: #62626f;
+  --muted: 241 241 248;
+  --muted-foreground: 98 98 111;
 
-  --accent: #ece8fe;
-  --accent-foreground: #302844;
+  --accent: 236 232 254;
+  --accent-foreground: 48 40 68;
 
-  --destructive: #e60016;
-  --destructive-foreground: #fcf7f7;
+  --destructive: 230 0 22;
+  --destructive-foreground: 252 247 247;
 
-  --success: #279936;
-  --success-foreground: #f1fcf0;
+  --success: 39 153 54;
+  --success-foreground: 241 252 240;
 
-  --warning: #e2a000;
-  --warning-foreground: #1b150b;
+  --warning: 226 160 0;
+  --warning-foreground: 27 21 11;
 
-  --border: #dddde5;
-  --input: #dddde5;
-  --ring: rgba(128, 71, 225, 0.5);
+  --border: 221 221 229;
+  --input: 221 221 229;
+  --ring: 128 71 225;
 }
 
 .dark {
-  --background: #13131a;
-  --foreground: #e7e7ee;
+  --background: 19 19 26;
+  --foreground: 231 231 238;
 
-  --card: #1c1c24;
-  --card-foreground: #e7e7ee;
+  --card: 28 28 36;
+  --card-foreground: 231 231 238;
 
-  --popover: #1c1c24;
-  --popover-foreground: #e7e7ee;
+  --popover: 28 28 36;
+  --popover-foreground: 231 231 238;
 
-  --primary: #b893ff;
-  --primary-foreground: #0c0913;
+  --primary: 184 147 255;
+  --primary-foreground: 12 9 19;
 
-  --secondary: #2d2d35;
-  --secondary-foreground: #e7e7ee;
+  --secondary: 45 45 53;
+  --secondary-foreground: 231 231 238;
 
-  --muted: #2d2d35;
-  --muted-foreground: #8d8e9b;
+  --muted: 45 45 53;
+  --muted-foreground: 141 142 155;
 
-  --accent: #342f45;
-  --accent-foreground: #dfdbf0;
+  --accent: 52 47 69;
+  --accent-foreground: 223 219 240;
 
-  --destructive: #f9423d;
-  --destructive-foreground: #130807;
+  --destructive: 249 66 61;
+  --destructive-foreground: 19 8 7;
 
-  --success: #46b250;
-  --success-foreground: #060d06;
+  --success: 70 178 80;
+  --success-foreground: 6 13 6;
 
-  --warning: #ecaa0b;
-  --warning-foreground: #1b150b;
+  --warning: 236 170 11;
+  --warning-foreground: 27 21 11;
 
-  --border: #32323a;
-  --input: #32323a;
-  --ring: rgba(184, 147, 255, 0.5);
-}
-
-@theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-
-  --font-sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --border: 50 50 58;
+  --input: 50 50 58;
+  --ring: 184 147 255;
 }
 
 @layer base {
@@ -125,14 +92,14 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-sans);
+    font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
 
   /* Icon lịch mặc định của trình duyệt quá nhỏ/mờ, không style được rõ ràng —
      ẩn icon gốc đi nhưng vẫn giữ nguyên vùng bấm để mở lịch (dùng cùng với
-     icon Calendar riêng của app đè lên trên, xem client/index.css + Input date). */
+     icon Calendar riêng của app đè lên trên, xem ExpenseForm). */
   input[type='date'] {
     position: relative;
   }
