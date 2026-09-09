@@ -124,9 +124,15 @@ async function deleteMember(id) {
 
 async function getExpenses() {
   await init();
+  // KHÔNG select cột receipt ở đây — ảnh bill base64 nặng (hàng trăm KB tới
+  // vài MB/ảnh), mà getExpenses() được gọi lại sau MỌI thao tác (buildState)
+  // nên trước đây cả API /api/state kéo theo toàn bộ ảnh bill của mọi khoản
+  // chi mỗi lần, dù không ai đang xem — đo thực tế thấy riêng phần này tốn
+  // hơn 1 giây/request. Chỉ trả has_receipt (cờ boolean); ảnh thật tải riêng
+  // qua getExpenseReceipt() khi người dùng thực sự bấm xem.
   const [expRs, shareRs] = await Promise.all([
     client.execute(
-      'SELECT id, date, description, amount, payer_id, status, receipt FROM expenses ORDER BY date DESC, rowid DESC'
+      "SELECT id, date, description, amount, payer_id, status, (receipt IS NOT NULL) AS has_receipt FROM expenses ORDER BY date DESC, rowid DESC"
     ),
     client.execute('SELECT expense_id, member_id, amount FROM expense_shares'),
   ]);
@@ -150,10 +156,18 @@ async function getExpenses() {
     amount: r.amount,
     payerId: r.payer_id,
     status: r.status,
-    receipt: r.receipt || null,
+    hasReceipt: !!r.has_receipt,
     shareMemberIds: sharesByExpense.get(r.id) || [],
     shareAmounts: shareAmountsByExpense.get(r.id) || null,
   }));
+}
+
+// Ảnh bill thật — tải riêng, chỉ khi người dùng bấm xem (xem getExpenses()).
+async function getExpenseReceipt(id) {
+  await init();
+  const rs = await client.execute({ sql: 'SELECT receipt FROM expenses WHERE id = ?', args: [id] });
+  if (rs.rows.length === 0) return undefined;
+  return rs.rows[0].receipt || null;
 }
 
 async function addExpense({
@@ -319,6 +333,7 @@ module.exports = {
   updateExpense,
   expenseExists,
   getExpenseById,
+  getExpenseReceipt,
   setExpenseStatus,
   deleteExpense,
   getSettlements,

@@ -46,6 +46,9 @@ export const api = {
 
   addExpense: (payload: ExpensePayload) =>
     request<AppState>('/api/expenses', { method: 'POST', body: JSON.stringify(payload) }),
+  // Ảnh bill không kèm trong AppState nữa (nặng, xem server/lib/db.js) — tải
+  // riêng khi người dùng thực sự bấm xem.
+  getExpenseReceipt: (id: string) => request<{ receipt: string | null }>(`/api/expenses/${id}/receipt`),
   addExpenseRequest: (payload: ExpensePayload) =>
     request<AppState>('/api/expense-requests', { method: 'POST', body: JSON.stringify(payload) }),
   approveExpenseRequest: (id: string) => request<AppState>(`/api/expense-requests/${id}/approve`, { method: 'POST' }),

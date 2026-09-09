@@ -70,6 +70,17 @@ router.post(
   })
 );
 
+// Ảnh bill tải riêng theo yêu cầu (xem db.getExpenses() — không còn kèm sẵn
+// trong /api/state để tránh kéo theo hàng MB ảnh mỗi lần lấy state).
+router.get(
+  '/expenses/:id/receipt',
+  asyncRoute(async (req, res) => {
+    const receipt = await db.getExpenseReceipt(req.params.id);
+    if (receipt === undefined) return res.status(404).json({ error: 'Không tìm thấy khoản chi' });
+    res.json({ receipt });
+  })
+);
+
 router.put(
   '/expenses/:id',
   requireAdmin,

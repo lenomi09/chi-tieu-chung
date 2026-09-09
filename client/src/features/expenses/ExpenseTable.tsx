@@ -1,4 +1,4 @@
-import { Check, ImageIcon, Pencil, Trash2, X } from 'lucide-react'
+import { Check, ImageIcon, Loader2, Pencil, Trash2, X } from 'lucide-react'
 import * as React from 'react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -124,6 +124,7 @@ function ExpenseTable({ expenses, members, isAdmin }: ExpenseTableProps) {
   const [statusFilter, setStatusFilter] = React.useState('all')
   const [page, setPage] = React.useState(1)
   const [billSrc, setBillSrc] = React.useState<string | null>(null)
+  const [billLoadingId, setBillLoadingId] = React.useState<string | null>(null)
   const [detailExpense, setDetailExpense] = React.useState<Expense | null>(null)
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
   const [bulkDeleting, setBulkDeleting] = React.useState(false)
@@ -131,6 +132,19 @@ function ExpenseTable({ expenses, members, isAdmin }: ExpenseTableProps) {
   const confirm = useConfirm()
 
   const memberName = React.useMemo(() => new Map(members.map((m) => [m.id, m.name])), [members])
+
+  // Ảnh bill tải riêng theo yêu cầu (không còn kèm sẵn trong state — xem
+  // client/src/lib/types.ts). billLoadingId chỉ để hiện spinner đúng nút
+  // đang tải, không chặn các nút khác.
+  const openBill = async (expenseId: string) => {
+    setBillLoadingId(expenseId)
+    try {
+      const { receipt } = await api.getExpenseReceipt(expenseId)
+      setBillSrc(receipt)
+    } finally {
+      setBillLoadingId(null)
+    }
+  }
 
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -317,15 +331,20 @@ function ExpenseTable({ expenses, members, isAdmin }: ExpenseTableProps) {
                       <ExpenseStatusBadge status={e.status} />
                     </td>
                     <td className="px-3 py-2" onClick={(ev) => ev.stopPropagation()}>
-                      {e.receipt && (
+                      {e.hasReceipt && (
                         <Button
                           size="icon"
                           variant="ghost"
                           className="h-7 w-7"
                           aria-label="Xem ảnh bill"
-                          onClick={() => setBillSrc(e.receipt)}
+                          disabled={billLoadingId === e.id}
+                          onClick={() => openBill(e.id)}
                         >
-                          <ImageIcon className="size-3.5" />
+                          {billLoadingId === e.id ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <ImageIcon className="size-3.5" />
+                          )}
                         </Button>
                       )}
                     </td>
@@ -376,18 +395,23 @@ function ExpenseTable({ expenses, members, isAdmin }: ExpenseTableProps) {
                 <div className="mt-2 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <ExpenseStatusBadge status={e.status} />
-                    {e.receipt && (
+                    {e.hasReceipt && (
                       <Button
                         size="icon"
                         variant="ghost"
                         className="h-7 w-7"
                         aria-label="Xem ảnh bill"
+                        disabled={billLoadingId === e.id}
                         onClick={(ev) => {
                           ev.stopPropagation()
-                          setBillSrc(e.receipt)
+                          openBill(e.id)
                         }}
                       >
-                        <ImageIcon className="size-3.5" />
+                        {billLoadingId === e.id ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <ImageIcon className="size-3.5" />
+                        )}
                       </Button>
                     )}
                   </div>

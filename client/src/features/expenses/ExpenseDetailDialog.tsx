@@ -1,4 +1,7 @@
+import { Loader2 } from 'lucide-react'
+import * as React from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { api } from '@/lib/api'
 import { formatCurrency, formatDate } from '@/lib/format'
 import type { Expense } from '@/lib/types'
 import { ExpenseStatusBadge } from './ExpenseStatusBadge'
@@ -12,6 +15,24 @@ interface ExpenseDetailDialogProps {
 }
 
 function ExpenseDetailDialog({ expense, memberName, onOpenChange, onViewReceipt }: ExpenseDetailDialogProps) {
+  // Ảnh bill không kèm sẵn trong expense nữa (nặng — xem client/src/lib/types.ts)
+  // nên tải riêng ở đây khi mở chi tiết 1 khoản chi có ảnh.
+  const [receiptSrc, setReceiptSrc] = React.useState<string | null>(null)
+  const expenseId = expense?.id
+  const hasReceipt = expense?.hasReceipt ?? false
+
+  React.useEffect(() => {
+    setReceiptSrc(null)
+    if (!expenseId || !hasReceipt) return
+    let cancelled = false
+    api.getExpenseReceipt(expenseId).then(({ receipt }) => {
+      if (!cancelled) setReceiptSrc(receipt)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [expenseId, hasReceipt])
+
   return (
     <Dialog open={!!expense} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -49,16 +70,22 @@ function ExpenseDetailDialog({ expense, memberName, onOpenChange, onViewReceipt 
                 </div>
               </div>
 
-              {expense.receipt && (
+              {expense.hasReceipt && (
                 <div className="flex flex-col gap-1.5">
                   <p className="text-xs text-muted-foreground">Ảnh bill</p>
-                  <button
-                    type="button"
-                    onClick={() => onViewReceipt(expense.receipt!)}
-                    className="w-fit overflow-hidden rounded-md border border-input outline-none transition-colors hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-ring/40"
-                  >
-                    <img src={expense.receipt} alt="Ảnh bill — bấm để phóng to" className="block max-h-48 max-w-[200px] object-contain" />
-                  </button>
+                  {receiptSrc ? (
+                    <button
+                      type="button"
+                      onClick={() => onViewReceipt(receiptSrc)}
+                      className="w-fit overflow-hidden rounded-md border border-input outline-none transition-colors hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-ring/40"
+                    >
+                      <img src={receiptSrc} alt="Ảnh bill — bấm để phóng to" className="block max-h-48 max-w-[200px] object-contain" />
+                    </button>
+                  ) : (
+                    <div className="flex h-24 w-[200px] items-center justify-center rounded-md border border-input text-muted-foreground">
+                      <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -12,7 +12,8 @@ export interface Expense {
   amount: number
   payerId: string
   status: RequestStatus
-  receipt: string | null
+  /** Ảnh bill (nếu có) không kèm sẵn ở đây — tải riêng qua api.getExpenseReceipt(id) khi cần xem. */
+  hasReceipt: boolean
   shareMemberIds: string[]
   shareAmounts: Record<string, number> | null
 }

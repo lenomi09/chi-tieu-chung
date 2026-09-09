@@ -186,7 +186,11 @@ test('ảnh bill: lưu và đọc lại đúng, sửa khoản chi không kèm �
     },
   });
   assert.equal(created.status, 200);
-  const expenseId = created.data.expenses.find((e) => e.receipt === fakeReceipt).id;
+  // /api/state không còn trả ảnh thật (chỉ cờ hasReceipt) — ảnh tải riêng qua
+  // GET /api/expenses/:id/receipt, chỉ khi thật sự cần xem (xem db.getExpenses()).
+  const expenseId = created.data.expenses.find((e) => e.hasReceipt === true).id;
+  const fetchedReceipt = await api(`/api/expenses/${expenseId}/receipt`, { cookie });
+  assert.equal(fetchedReceipt.data.receipt, fakeReceipt);
 
   // Sửa lại khoản chi nhưng KHÔNG gửi kèm receipt -> ảnh cũ bị xoá (đúng hành vi hiện tại,
   // vì client luôn gửi lại giá trị receipt hiện có/rỗng cùng payload).
@@ -195,7 +199,9 @@ test('ảnh bill: lưu và đọc lại đúng, sửa khoản chi không kèm �
     cookie,
     body: { date: '2026-09-10', amount: 25000, payerId: an, shareMemberIds: [an] },
   });
-  assert.equal(updated.data.expenses.find((e) => e.id === expenseId).receipt, null);
+  assert.equal(updated.data.expenses.find((e) => e.id === expenseId).hasReceipt, false);
+  const fetchedAfterUpdate = await api(`/api/expenses/${expenseId}/receipt`, { cookie });
+  assert.equal(fetchedAfterUpdate.data.receipt, null);
 
   // Ảnh không đúng định dạng data URL -> bị từ chối
   const invalid = await api('/api/expenses', {

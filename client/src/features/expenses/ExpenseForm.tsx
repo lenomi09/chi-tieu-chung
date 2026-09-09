@@ -38,7 +38,9 @@ function buildDefaultValues(members: Member[], expense?: Expense | null): Expens
       shareMemberIds: expense.shareMemberIds,
       splitMode: expense.shareAmounts ? 'custom' : 'equal',
       shareAmounts: expense.shareAmounts ?? {},
-      receipt: expense.receipt,
+      // Ảnh bill thật không kèm sẵn trong expense nữa (nặng — xem
+      // client/src/lib/types.ts) — tải riêng bên dưới nếu hasReceipt.
+      receipt: null,
     }
   }
   return {
@@ -68,6 +70,29 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
     resolver: zodResolver(expenseFormSchema),
     defaultValues: buildDefaultValues(members, expense),
   })
+
+  // Sửa 1 khoản chi đã có sẵn ảnh bill — ảnh không kèm sẵn trong expense nữa
+  // (xem client/src/lib/types.ts), tải riêng ở đây để prefill ReceiptUpload.
+  // Chặn submit trong lúc đang tải (receiptLoading) — nếu không, submit "hụt"
+  // trước khi tải xong sẽ gửi receipt=null, xoá mất ảnh cũ ngoài ý muốn.
+  const [receiptLoading, setReceiptLoading] = useState(!!expense?.hasReceipt)
+  useEffect(() => {
+    if (!expense?.hasReceipt) {
+      setReceiptLoading(false)
+      return
+    }
+    let cancelled = false
+    setReceiptLoading(true)
+    api.getExpenseReceipt(expense.id).then(({ receipt }) => {
+      if (cancelled) return
+      setValue('receipt', receipt)
+      setReceiptLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expense?.id, expense?.hasReceipt])
 
   const payerId = useWatch({ control, name: 'payerId' })
   const shareMemberIds = useWatch({ control, name: 'shareMemberIds' }) ?? []
@@ -502,8 +527,14 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
         )}
       </div>
 
-      <Button type="submit" loading={isSubmitting} className="self-start">
-        {expense ? 'Lưu thay đổi' : mode === 'admin' ? 'Thêm khoản chi' : 'Gửi yêu cầu'}
+      <Button type="submit" loading={isSubmitting || receiptLoading} disabled={receiptLoading} className="self-start">
+        {receiptLoading
+          ? 'Đang tải ảnh bill...'
+          : expense
+            ? 'Lưu thay đổi'
+            : mode === 'admin'
+              ? 'Thêm khoản chi'
+              : 'Gửi yêu cầu'}
       </Button>
     </form>
   )
