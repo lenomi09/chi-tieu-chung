@@ -136,3 +136,13 @@ input[type='date'] {
   display: block !important;
   width: 100% !important;
 }
+
+/* Modal (Radix Dialog) tự khoá cuộn nền bằng cách ép width: <giá trị cố
+   định>px trực tiếp lên <body> (bù trừ bề rộng thanh cuộn nó tưởng sẽ biến
+   mất) — nhưng html ở trên đã overflow-y: scroll để thanh cuộn LUÔN hiện
+   sẵn rồi, nên bù trừ đó thành ra bù 2 lần: body bị co hẹp thêm đúng bằng bề
+   rộng thanh cuộn (lệch trái ~15px), làm khối nội dung căn giữa (mx-auto)
+   bị dịch trái theo. Ép lại width 100% để huỷ phần bù trừ thừa đó. */
+body {
+  width: 100% !important;
+}
