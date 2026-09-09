@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { computeSummary, computeDebts } = require('../lib/calc');
+const { computeSummary, computeDebts } = require('../server/lib/calc');
 
 const members = [
   { id: 'lan', name: 'Lan' },

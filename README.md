@@ -12,13 +12,25 @@ Dữ liệu lưu bằng SQLite (qua `@libsql/client`) — chạy local dùng fil
 máy, không cần cài gì thêm; khi deploy có thể trỏ sang DB Turso free để dữ liệu không mất
 khi server khởi động lại.
 
+## Kiến trúc
+
+- **Backend**: Node.js + Express (`server/`), tổ chức theo `routes/` (định tuyến),
+  `services/` (validate + business logic), `middleware/`, `lib/` (auth, tính toán số dư,
+  truy cập DB). `server/lib/calc.js` là nơi DUY NHẤT chứa công thức tính số dư/"ai nợ ai" —
+  dùng chung cho cả server và (qua route `/calc.js`) trình duyệt.
+- **Frontend**: React + Vite + TypeScript + Tailwind CSS (`client/`), tổ chức theo tính
+  năng dưới `client/src/features/{auth,members,expenses,settlements,dashboard}`, các
+  component UI dùng chung ở `client/src/components/ui/`. Form dùng React Hook Form + Zod.
+- Production: Express phục vụ bản build tĩnh của React từ `client/dist/`.
+
 ## Cài đặt
 
-Yêu cầu: [Node.js](https://nodejs.org/) bản 18 trở lên.
+Yêu cầu: [Node.js](https://nodejs.org/) bản 20 trở lên.
 
 ```bash
 cd chi-tieu-chung
 npm install
+npm run build   # build frontend React (client/dist) — bắt buộc trước khi npm start
 ```
 
 ## Cấu hình
@@ -36,12 +48,25 @@ chỉ xem cho tất cả mọi người.
 
 ## Chạy local
 
+**Xem bản production (đã build):**
+
 ```bash
+npm run build
 npm start
 ```
 
 Mở trình duyệt vào **http://localhost:3456**. Bấm "Đăng nhập admin" ở góc trên để vào chế
 độ chỉnh sửa đầy đủ.
+
+**Phát triển frontend (hot reload):** chạy song song 2 lệnh ở 2 terminal —
+
+```bash
+npm run dev          # backend, http://localhost:3456
+npm run dev:client   # Vite dev server, http://localhost:5173 (proxy /api sang backend)
+```
+
+Mở **http://localhost:5173** khi phát triển giao diện — mọi thay đổi trong `client/src`
+được áp dụng ngay không cần build lại.
 
 ## Chạy kiểm thử
 
@@ -75,7 +100,7 @@ Việc này cần bạn tự tạo tài khoản ở các dịch vụ dưới đ�
 2. **Đẩy code lên GitHub**: tạo repo riêng của bạn, `git init` trong thư mục
    `chi-tieu-chung`, commit, push.
 3. **Tạo Web Service free trên [Render](https://render.com)**: trỏ vào repo GitHub đó.
-   - Build command: `npm install`
+   - Build command: `npm install && npm run build`
    - Start command: `npm start`
 4. **Set biến môi trường** trên Render (mục Environment):
 

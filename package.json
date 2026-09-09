@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "description": "Web app tính tiền chi tiêu chung — admin quản lý, người khác xem + gửi yêu cầu thanh toán chờ duyệt",
   "private": true,
-  "main": "server.js",
+  "main": "server/index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js",
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "dev:client": "npm run dev --prefix client",
+    "build": "npm install --prefix client && npm run build --prefix client",
     "test": "node --test test/*.test.js",
     "migrate": "node scripts/migrate-json-to-db.js"
   },

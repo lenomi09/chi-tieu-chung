@@ -6,7 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const db = require('../lib/db');
+const db = require('../server/lib/db');
 
 const JSON_FILE = path.join(__dirname, '..', 'data.json');
 

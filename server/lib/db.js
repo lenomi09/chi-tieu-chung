@@ -6,7 +6,7 @@ const { createClient } = require('@libsql/client');
 
 // Local dev: file SQLite ngay trên máy, không cần mạng.
 // Production: trỏ TURSO_DATABASE_URL/TURSO_AUTH_TOKEN sang DB Turso free.
-const DB_URL = process.env.TURSO_DATABASE_URL || `file:${path.join(__dirname, '..', 'data.db')}`;
+const DB_URL = process.env.TURSO_DATABASE_URL || `file:${path.join(__dirname, '..', '..', 'data.db')}`;
 const DB_AUTH_TOKEN = process.env.TURSO_AUTH_TOKEN;
 
 const client = createClient({

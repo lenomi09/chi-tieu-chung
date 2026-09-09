@@ -12,7 +12,7 @@ process.env.ADMIN_PASSWORD = 'test-password';
 process.env.SESSION_SECRET = 'test-session-secret';
 
 const app = require('../server');
-const db = require('../lib/db');
+const db = require('../server/lib/db');
 
 let server;
 let baseUrl;
