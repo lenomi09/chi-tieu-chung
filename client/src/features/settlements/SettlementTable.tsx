@@ -246,9 +246,10 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
       )}
 
       {isAdmin && pageItems.length > 0 && (
-        // pl-[13px] khớp đúng vị trí ô tích ở mỗi dòng bên dưới: border (1px)
-        // + p-3 (12px) của khối dòng = 13px tính từ mép trái.
-        <label className="flex w-fit cursor-pointer items-center gap-1.5 py-1 pl-[13px] text-xs text-muted-foreground">
+        // Ẩn trên mobile (màn hẹp, tự tích từng dòng đã đủ dùng) — chỉ hiện
+        // từ sm trở lên. pl-[13px] khớp đúng vị trí ô tích ở mỗi dòng bên
+        // dưới: border (1px) + p-3 (12px) của khối dòng = 13px từ mép trái.
+        <label className="hidden w-fit cursor-pointer items-center gap-1.5 py-1 pl-[13px] text-xs text-muted-foreground sm:flex">
           <Checkbox
             checked={pageIdsAllSelected}
             onCheckedChange={(v) => toggleSelectAllOnPage(v === true)}
