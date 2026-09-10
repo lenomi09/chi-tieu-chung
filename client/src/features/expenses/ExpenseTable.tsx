@@ -324,6 +324,14 @@ function ExpenseTable({ expenses, members, isAdmin }: ExpenseTableProps) {
                     tabIndex={0}
                     onClick={() => setDetailExpense(e)}
                     onKeyDown={(ev) => {
+                      // Chỉ xử lý khi phím bấm đúng trên chính dòng này (focus bằng Tab) —
+                      // không xử lý khi phím bấm nổi lên từ 1 phần tử con (input, nút...),
+                      // kể cả từ dialog "Sửa khoản chi" portal ra ngoài: React theo dõi bong
+                      // bóng sự kiện theo CÂY REACT chứ không theo cây DOM, nên phím Cách gõ
+                      // trong ô nhập tên/số tiền món (bên trong dialog sửa, vốn là con của
+                      // dòng này trong cây React) vẫn nổi lên tới đây nếu không chặn — trước
+                      // đây làm dòng này tưởng nhầm là người dùng bấm Cách để mở chi tiết.
+                      if (ev.target !== ev.currentTarget) return
                       if (ev.key === 'Enter' || ev.key === ' ') {
                         ev.preventDefault()
                         setDetailExpense(e)
@@ -382,6 +390,9 @@ function ExpenseTable({ expenses, members, isAdmin }: ExpenseTableProps) {
                 tabIndex={0}
                 onClick={() => setDetailExpense(e)}
                 onKeyDown={(ev) => {
+                  // Xem giải thích ở bảng desktop phía trên — React bong bóng sự kiện
+                  // theo cây React, không theo cây DOM, nên phải chặn theo target.
+                  if (ev.target !== ev.currentTarget) return
                   if (ev.key === 'Enter' || ev.key === ' ') {
                     ev.preventDefault()
                     setDetailExpense(e)
