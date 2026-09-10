@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { LogIn } from 'lucide-react'
+import { KeyRound } from 'lucide-react'
 import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
@@ -54,7 +54,7 @@ function LoginDialog() {
     >
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" aria-label="Đăng nhập admin">
-          <LogIn />
+          <KeyRound />
           <span className="hidden sm:inline">Đăng nhập admin</span>
         </Button>
       </DialogTrigger>
