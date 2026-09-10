@@ -9,7 +9,12 @@ const db = require('../lib/db');
 const requireAdmin = require('../middleware/requireAdmin');
 const asyncRoute = require('../middleware/asyncRoute');
 const { buildState } = require('../services/stateService');
-const { validateExpenseInput, validateReceipt, buildExpensePayload } = require('../services/expenseService');
+const {
+  validateExpenseInput,
+  validateReceipt,
+  validateSplitItems,
+  buildExpensePayload,
+} = require('../services/expenseService');
 
 const router = express.Router();
 
@@ -20,7 +25,7 @@ router.post(
   requireAdmin,
   asyncRoute(async (req, res) => {
     const members = await db.getMembers();
-    const err = validateExpenseInput(req.body, members) || validateReceipt(req.body.receipt);
+    const err = validateExpenseInput(req.body, members) || validateReceipt(req.body.receipt) || validateSplitItems(req.body.splitItems);
     if (err) return res.status(400).json({ error: err });
 
     await db.addExpense({
@@ -37,7 +42,7 @@ router.post(
   '/expense-requests',
   asyncRoute(async (req, res) => {
     const members = await db.getMembers();
-    const err = validateExpenseInput(req.body, members) || validateReceipt(req.body.receipt);
+    const err = validateExpenseInput(req.body, members) || validateReceipt(req.body.receipt) || validateSplitItems(req.body.splitItems);
     if (err) return res.status(400).json({ error: err });
 
     await db.addExpense({
@@ -90,7 +95,7 @@ router.put(
     if (!exists) return res.status(404).json({ error: 'Không tìm thấy khoản chi' });
 
     const members = await db.getMembers();
-    const err = validateExpenseInput(req.body, members) || validateReceipt(req.body.receipt);
+    const err = validateExpenseInput(req.body, members) || validateReceipt(req.body.receipt) || validateSplitItems(req.body.splitItems);
     if (err) return res.status(400).json({ error: err });
 
     await db.updateExpense(req.params.id, buildExpensePayload(req.body, members));

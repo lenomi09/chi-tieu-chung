@@ -5,6 +5,7 @@
 // phải tự validate tay.
 
 const MAX_RECEIPT_LENGTH = 4 * 1024 * 1024; // ~4MB chuỗi base64
+const MAX_SPLIT_ITEMS_LENGTH = 20 * 1024; // dư sức cho vài chục món
 
 // Chia riêng từng người (thay vì chia đều): shareAmounts là { memberId: số tiền }.
 // Không bắt buộc — không gửi (hoặc gửi rỗng) thì coi như chia đều như cũ.
@@ -78,6 +79,30 @@ function validateReceipt(receipt) {
   return null;
 }
 
+// Danh sách món gốc của "Chia theo món" — chỉ dùng để hiện lại UI khi mở sửa
+// (xem client ExpenseForm.tsx), KHÔNG dùng để tính tiền (shareAmounts vẫn là
+// nguồn số liệu thật, đã validate riêng ở validateShareAmounts) nên chỉ cần
+// kiểm tra hình dạng dữ liệu cơ bản + giới hạn kích thước, không cần khớp số.
+function validateSplitItems(splitItems) {
+  if (splitItems === null || splitItems === undefined) return null;
+  if (typeof splitItems !== 'object' || Array.isArray(splitItems)) {
+    return 'Dữ liệu danh sách món không hợp lệ';
+  }
+  if (!Array.isArray(splitItems.items) || !Array.isArray(splitItems.remainingMemberIds)) {
+    return 'Dữ liệu danh sách món không hợp lệ';
+  }
+  let str;
+  try {
+    str = JSON.stringify(splitItems);
+  } catch {
+    return 'Dữ liệu danh sách món không hợp lệ';
+  }
+  if (str.length > MAX_SPLIT_ITEMS_LENGTH) {
+    return 'Danh sách món quá lớn';
+  }
+  return null;
+}
+
 // Ghép sẵn payload để routes/expenses.js dùng chung cho cả 3 chỗ tạo/sửa
 // khoản chi (admin thêm thẳng, người khác gửi yêu cầu, admin sửa).
 function buildExpensePayload(body, members) {
@@ -89,12 +114,14 @@ function buildExpensePayload(body, members) {
     shareMemberIds: body.shareMemberIds.filter((id) => members.some((m) => m.id === id)),
     shareAmounts: normalizeShareAmounts(body.shareAmounts),
     receipt: body.receipt || null,
+    splitItems: body.splitItems || null,
   };
 }
 
 module.exports = {
   validateExpenseInput,
   validateReceipt,
+  validateSplitItems,
   normalizeShareAmounts,
   buildExpensePayload,
 };

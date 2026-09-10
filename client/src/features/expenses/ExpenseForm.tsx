@@ -113,8 +113,17 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
   // cùng và điền vào form.
   const editingExistingCustom = !!expense?.shareAmounts
   const [splitUiMode, setSplitUiMode] = useState<'equal' | 'byItem'>(editingExistingCustom ? 'byItem' : 'equal')
-  const [items, setItems] = useState<SplitItem[]>([])
   const itemIdCounter = useRef(0)
+  // Sửa 1 khoản chi đã lưu sẵn danh sách món (từng "Chia theo món" trước đó,
+  // xem client/src/lib/types.ts SplitItemsData) — hiện lại đúng danh sách đó
+  // thay vì bắt gõ lại từ đầu. Không có (chia riêng tay kiểu cũ, hoặc chia
+  // đều) thì để trống như trước.
+  const [items, setItems] = useState<SplitItem[]>(() =>
+    (expense?.splitItems?.items ?? []).map((it) => {
+      itemIdCounter.current += 1
+      return { id: `item-${itemIdCounter.current}`, name: it.name, amountText: String(it.amount), memberIds: it.memberIds }
+    })
+  )
   // Sửa 1 khoản chi đã có sẵn shareAmounts (chia riêng/chia theo món từ
   // trước) — không tự tính lại (sẽ ghi đè mất số cũ) cho tới khi người dùng
   // thật sự thao tác gì đó ở "Chia theo món" (thêm/xoá món, đổi ai nhận
@@ -126,9 +135,13 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
   // còn phần còn lại chỉ chia cho 1 nhóm nhỏ hơn, không phải ai cũng nhận).
   // Chỉ tự đồng bộ theo "Chia cho" khi người dùng CHƯA tự tay chỉnh danh
   // sách này — tránh xoá mất lựa chọn thu hẹp của họ mỗi khi tick/bỏ tick
-  // "Chia cho" ở trên.
-  const [remainingMemberIds, setRemainingMemberIds] = useState<string[]>(shareMemberIds)
-  const remainingTouched = useRef(false)
+  // "Chia cho" ở trên. Sửa 1 khoản chi đã lưu sẵn danh sách này thì coi như
+  // đã "chỉnh" rồi (giữ đúng lựa chọn cũ, không để hiệu ứng đồng bộ tự động
+  // ghi đè về "tất cả" ngay khi mở form lên).
+  const [remainingMemberIds, setRemainingMemberIds] = useState<string[]>(
+    () => expense?.splitItems?.remainingMemberIds ?? shareMemberIds
+  )
+  const remainingTouched = useRef(!!expense?.splitItems)
 
   useEffect(() => {
     if (remainingTouched.current) {
@@ -209,6 +222,25 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
   }
 
   const onSubmit = async (values: ExpenseFormValues) => {
+    // Chỉ gửi lại danh sách món MỚI khi người dùng thật sự đụng vào "Chia
+    // theo món" lần này (byItemTouched) — mở sửa lên xem rồi lưu luôn (chưa
+    // đụng gì) thì giữ nguyên danh sách món đã lưu trước đó, không ghi đè
+    // bằng danh sách trống (items=[] lúc chưa đụng không phản ánh đúng
+    // shareAmounts thật sự đang được gửi lên, vốn vẫn là số cũ).
+    const splitItems: ExpensePayload['splitItems'] =
+      values.splitMode !== 'custom'
+        ? null
+        : byItemTouched.current
+          ? {
+              items: items.map((it) => ({
+                name: it.name,
+                amount: parseSumExpression(it.amountText),
+                memberIds: it.memberIds,
+              })),
+              remainingMemberIds,
+            }
+          : (expense?.splitItems ?? null)
+
     const payload: ExpensePayload = {
       date: values.date,
       description: values.description.trim(),
@@ -222,6 +254,7 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
             )
           : null,
       receipt: values.receipt ?? null,
+      splitItems,
     }
     try {
       if (expense) {

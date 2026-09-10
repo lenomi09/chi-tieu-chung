@@ -66,6 +66,13 @@ async function doInit() {
   if (!(await columnExists('expense_shares', 'amount'))) {
     await client.execute('ALTER TABLE expense_shares ADD COLUMN amount REAL');
   }
+  // NULL = không phải "chia theo món" (chia đều, chia riêng tay, hoặc dữ liệu
+  // cũ trước khi có tính năng này); có giá trị = JSON {items, remainingMemberIds}
+  // lưu lại danh sách món gốc để mở sửa lên còn hiện lại đúng, không chỉ còn
+  // mỗi số tiền cuối cùng của từng người.
+  if (!(await columnExists('expenses', 'split_items'))) {
+    await client.execute('ALTER TABLE expenses ADD COLUMN split_items TEXT');
+  }
 }
 
 function init() {
@@ -127,7 +134,7 @@ async function getExpenses() {
   // qua getExpenseReceipt() khi người dùng thực sự bấm xem.
   const [expRs, shareRs] = await Promise.all([
     client.execute(
-      "SELECT id, date, description, amount, payer_id, status, (receipt IS NOT NULL) AS has_receipt FROM expenses ORDER BY date DESC, rowid DESC"
+      "SELECT id, date, description, amount, payer_id, status, (receipt IS NOT NULL) AS has_receipt, split_items FROM expenses ORDER BY date DESC, rowid DESC"
     ),
     client.execute('SELECT expense_id, member_id, amount FROM expense_shares'),
   ]);
@@ -154,7 +161,23 @@ async function getExpenses() {
     hasReceipt: !!r.has_receipt,
     shareMemberIds: sharesByExpense.get(r.id) || [],
     shareAmounts: shareAmountsByExpense.get(r.id) || null,
+    splitItems: parseSplitItems(r.split_items),
   }));
+}
+
+// Dữ liệu tự nhập từ client — chỉ dùng để hiện lại UI "Chia theo món" khi mở
+// sửa, không dùng để tính tiền (shareAmounts vẫn là nguồn số liệu thật) nên
+// lỗi định dạng chỉ cần bỏ qua (coi như không có), không cần chặn cả request.
+function parseSplitItems(raw) {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    if (!Array.isArray(parsed.items) || !Array.isArray(parsed.remainingMemberIds)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
 // Ảnh bill thật — tải riêng, chỉ khi người dùng bấm xem (xem getExpenses()).
@@ -174,13 +197,14 @@ async function addExpense({
   shareAmounts = null,
   status = 'approved',
   receipt = null,
+  splitItems = null,
 }) {
   await init();
   const id = newId();
   const statements = [
     {
-      sql: 'INSERT INTO expenses (id, date, description, amount, payer_id, status, receipt) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      args: [id, date, description, amount, payerId, status, receipt],
+      sql: 'INSERT INTO expenses (id, date, description, amount, payer_id, status, receipt, split_items) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      args: [id, date, description, amount, payerId, status, receipt, splitItems ? JSON.stringify(splitItems) : null],
     },
     ...shareMemberIds.map((mid) => ({
       sql: 'INSERT INTO expense_shares (expense_id, member_id, amount) VALUES (?, ?, ?)',
@@ -199,13 +223,13 @@ async function setExpenseStatus(id, status) {
 
 async function updateExpense(
   id,
-  { date, description, amount, payerId, shareMemberIds, shareAmounts = null, receipt = null }
+  { date, description, amount, payerId, shareMemberIds, shareAmounts = null, receipt = null, splitItems = null }
 ) {
   await init();
   const statements = [
     {
-      sql: 'UPDATE expenses SET date = ?, description = ?, amount = ?, payer_id = ?, receipt = ? WHERE id = ?',
-      args: [date, description, amount, payerId, receipt, id],
+      sql: 'UPDATE expenses SET date = ?, description = ?, amount = ?, payer_id = ?, receipt = ?, split_items = ? WHERE id = ?',
+      args: [date, description, amount, payerId, receipt, splitItems ? JSON.stringify(splitItems) : null, id],
     },
     { sql: 'DELETE FROM expense_shares WHERE expense_id = ?', args: [id] },
     ...shareMemberIds.map((mid) => ({

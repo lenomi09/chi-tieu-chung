@@ -5,6 +5,18 @@ export interface Member {
   name: string
 }
 
+export interface SplitItemRecord {
+  name: string
+  amount: number
+  memberIds: string[]
+}
+
+/** Danh sách món gốc của "Chia theo món" — chỉ để hiện lại UI khi mở sửa, không dùng để tính tiền (shareAmounts mới là nguồn số liệu thật). */
+export interface SplitItemsData {
+  items: SplitItemRecord[]
+  remainingMemberIds: string[]
+}
+
 export interface Expense {
   id: string
   date: string
@@ -16,6 +28,7 @@ export interface Expense {
   hasReceipt: boolean
   shareMemberIds: string[]
   shareAmounts: Record<string, number> | null
+  splitItems: SplitItemsData | null
 }
 
 export interface Settlement {
@@ -58,6 +71,7 @@ export interface ExpensePayload {
   shareMemberIds: string[]
   shareAmounts: Record<string, number> | null
   receipt: string | null
+  splitItems: SplitItemsData | null
 }
 
 export interface SettlementPayload {

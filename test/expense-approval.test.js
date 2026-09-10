@@ -218,6 +218,84 @@ test('ảnh bill: lưu và đọc lại đúng, sửa khoản chi không kèm �
   assert.equal(invalid.status, 400);
 });
 
+test('danh sách món "Chia theo món" (splitItems): lưu và đọc lại đúng, sửa không đụng tới thì giữ nguyên, dữ liệu sai hình dạng bị từ chối', async () => {
+  const { cookie } = await api('/api/login', { method: 'POST', body: { password: 'test-password' } });
+  const addMember = async (name) => {
+    const r = await api('/api/members', { method: 'POST', cookie, body: { name } });
+    return r.data.members.find((m) => m.name === name).id;
+  };
+  const an = await addMember('An_splititems');
+  const binh = await addMember('Binh_splititems');
+
+  const splitItems = {
+    items: [{ name: 'Bia', amount: 40000, memberIds: [an] }],
+    remainingMemberIds: [an, binh],
+  };
+  const created = await api('/api/expenses', {
+    method: 'POST',
+    cookie,
+    body: {
+      date: '2026-09-10',
+      amount: 100000,
+      payerId: an,
+      shareMemberIds: [an, binh],
+      shareAmounts: { [an]: 70000, [binh]: 30000 },
+      splitItems,
+    },
+  });
+  assert.equal(created.status, 200);
+  const expenseId = created.data.expenses.find((e) => e.payerId === an && e.amount === 100000).id;
+  assert.deepEqual(created.data.expenses.find((e) => e.id === expenseId).splitItems, splitItems);
+
+  // sửa khoản chi nhưng KHÔNG gửi kèm splitItems -> bị xoá (giống hệt hành vi receipt:
+  // client luôn gửi lại giá trị hiện có/null cùng payload, server không tự "giữ hộ").
+  const updatedNoItems = await api(`/api/expenses/${expenseId}`, {
+    method: 'PUT',
+    cookie,
+    body: {
+      date: '2026-09-10',
+      amount: 100000,
+      payerId: an,
+      shareMemberIds: [an, binh],
+      shareAmounts: { [an]: 70000, [binh]: 30000 },
+    },
+  });
+  assert.equal(updatedNoItems.data.expenses.find((e) => e.id === expenseId).splitItems, null);
+
+  // sửa lại có kèm splitItems mới -> ghi đè đúng
+  const splitItems2 = {
+    items: [{ name: 'Nước', amount: 20000, memberIds: [an, binh] }],
+    remainingMemberIds: [binh],
+  };
+  const updatedWithItems = await api(`/api/expenses/${expenseId}`, {
+    method: 'PUT',
+    cookie,
+    body: {
+      date: '2026-09-10',
+      amount: 100000,
+      payerId: an,
+      shareMemberIds: [an, binh],
+      shareAmounts: { [an]: 70000, [binh]: 30000 },
+      splitItems: splitItems2,
+    },
+  });
+  assert.deepEqual(updatedWithItems.data.expenses.find((e) => e.id === expenseId).splitItems, splitItems2);
+
+  // dữ liệu sai hình dạng (thiếu remainingMemberIds) -> bị từ chối
+  const invalidShape = await api('/api/expenses', {
+    method: 'POST',
+    cookie,
+    body: {
+      date: '2026-09-10',
+      amount: 10000,
+      payerId: an,
+      shareMemberIds: [an],
+      splitItems: { items: [] },
+    },
+  });
+  assert.equal(invalidShape.status, 400);
+});
+
 test('chia riêng số tiền (shareAmounts): lưu đúng, tính đúng số dư, và bị từ chối nếu tổng sai', async () => {
   const { cookie } = await api('/api/login', { method: 'POST', body: { password: 'test-password' } });
   const addMember = async (name) => {
