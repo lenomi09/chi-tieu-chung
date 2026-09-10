@@ -21,9 +21,9 @@ function LogoutButton() {
   }
 
   return (
-    <Button variant="outline" size="sm" onClick={handleLogout} loading={loading}>
+    <Button variant="outline" size="sm" onClick={handleLogout} loading={loading} aria-label="Đăng xuất">
       {!loading && <LogOut />}
-      Đăng xuất
+      <span className="hidden sm:inline">Đăng xuất</span>
     </Button>
   )
 }

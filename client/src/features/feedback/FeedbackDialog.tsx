@@ -74,9 +74,9 @@ function FeedbackDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" aria-label="Góp ý">
           <MessageSquareText />
-          Góp ý
+          <span className="hidden sm:inline">Góp ý</span>
         </Button>
       </DialogTrigger>
       <DialogContent>

@@ -53,9 +53,9 @@ function LoginDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" aria-label="Đăng nhập admin">
           <LogIn />
-          Đăng nhập admin
+          <span className="hidden sm:inline">Đăng nhập admin</span>
         </Button>
       </DialogTrigger>
       <DialogContent>

@@ -27,9 +27,9 @@ function ManageDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" aria-label={isAdmin ? 'Quản lý' : 'Thành viên'}>
           {isAdmin ? <Settings /> : <Users />}
-          {isAdmin ? 'Quản lý' : 'Thành viên'}
+          <span className="hidden sm:inline">{isAdmin ? 'Quản lý' : 'Thành viên'}</span>
         </Button>
       </DialogTrigger>
       <DialogContent>
