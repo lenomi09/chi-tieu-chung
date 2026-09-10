@@ -17,8 +17,7 @@ import { Textarea } from '@/components/ui/textarea'
 // Key công khai của Web3Forms (https://web3forms.com), dùng để gửi form thẳng
 // từ trình duyệt tới email đã đăng ký — không cần backend, key này được thiết
 // kế để lộ ra ở phía client (giống site key reCAPTCHA), không phải bí mật.
-// TODO: thay bằng access key thật sau khi đăng ký tại web3forms.com.
-const WEB3FORMS_ACCESS_KEY = 'REPLACE_WITH_YOUR_WEB3FORMS_ACCESS_KEY'
+const WEB3FORMS_ACCESS_KEY = 'b3eb3e3e-2184-4f22-8cd9-8da9700e1eb4'
 
 function FeedbackDialog() {
   const [open, setOpen] = React.useState(false)
