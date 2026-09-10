@@ -2,7 +2,7 @@ import { Moon, Plus, Sun } from 'lucide-react'
 import * as React from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { FullPageSpinner } from '@/components/ui/spinner'
 import { useAppState } from '@/context/AppStateContext'
@@ -56,11 +56,8 @@ function AppShell() {
 
   return (
     <div className="mx-auto flex min-h-svh max-w-[1400px] flex-col gap-4 p-4 sm:p-6 lg:px-10 lg:py-6">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
-        <div>
-          <h1 className="text-lg font-semibold sm:text-xl">Chi tiêu chung</h1>
-          <p className="text-xs text-muted-foreground">Theo dõi chi tiêu và thanh toán trong nhóm</p>
-        </div>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-lg font-semibold sm:text-xl">Chi tiêu chung</h1>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <ThemeToggle />
           <ManageDialog />
@@ -80,7 +77,6 @@ function AppShell() {
       <Card>
         <CardHeader>
           <CardTitle>Tổng kết</CardTitle>
-          <CardDescription>Bấm vào 1 người để xem chi tiết nợ và ghi nhận đã trả.</CardDescription>
         </CardHeader>
         <CardContent>
           <SummaryPanel
