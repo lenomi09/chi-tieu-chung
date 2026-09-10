@@ -13,6 +13,7 @@ import { ManageDialog } from '@/features/dashboard/ManageDialog'
 import { SummaryPanel } from '@/features/dashboard/SummaryPanel'
 import { ExpenseForm } from '@/features/expenses/ExpenseForm'
 import { ExpenseTable } from '@/features/expenses/ExpenseTable'
+import { FeedbackDialog } from '@/features/feedback/FeedbackDialog'
 import { SettlementTable } from '@/features/settlements/SettlementTable'
 
 function ThemeToggle() {
@@ -60,9 +61,10 @@ function AppShell() {
           <h1 className="text-lg font-semibold sm:text-xl">Chi tiêu chung</h1>
           <p className="text-xs text-muted-foreground">Theo dõi chi tiêu và thanh toán trong nhóm</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <ThemeToggle />
           <ManageDialog />
+          <FeedbackDialog />
           {isAdmin ? <LogoutButton /> : <LoginDialog />}
         </div>
       </header>
