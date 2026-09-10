@@ -14,6 +14,7 @@ import { api, ApiError } from '@/lib/api'
 import { formatCurrency, todayIso } from '@/lib/format'
 import type { Expense, ExpensePayload, Member } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { BillViewerDialog } from './BillViewerDialog'
 import { ReceiptUpload } from './ReceiptUpload'
 import { type ExpenseFormValues, expenseFormSchema } from './schema'
 import { computeItemBasedShares, parseSumExpression, type SplitItem } from './shareUtils'
@@ -76,6 +77,9 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
   // Chặn submit trong lúc đang tải (receiptLoading) — nếu không, submit "hụt"
   // trước khi tải xong sẽ gửi receipt=null, xoá mất ảnh cũ ngoài ý muốn.
   const [receiptLoading, setReceiptLoading] = useState(!!expense?.hasReceipt)
+  // Xem ảnh bill phóng to/zoom được ngay trong form sửa (bấm vào ảnh xem
+  // trước) — dùng chung BillViewerDialog với các chỗ khác trong app.
+  const [billSrc, setBillSrc] = useState<string | null>(null)
   useEffect(() => {
     if (!expense?.hasReceipt) {
       setReceiptLoading(false)
@@ -240,7 +244,8 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
+    <>
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
       {errors.root?.message && (
         <Alert variant="destructive">
           <AlertDescription>{errors.root.message}</AlertDescription>
@@ -519,6 +524,7 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
           value={receipt}
           onChange={(v) => setValue('receipt', v)}
           onErrorMessage={(m) => setError('receipt', { message: m })}
+          onView={setBillSrc}
         />
         {errors.receipt?.message && (
           <p role="alert" className="text-xs text-destructive">
@@ -536,7 +542,9 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
               ? 'Thêm khoản chi'
               : 'Gửi yêu cầu'}
       </Button>
-    </form>
+      </form>
+      <BillViewerDialog src={billSrc} onOpenChange={(open) => !open && setBillSrc(null)} />
+    </>
   )
 }
 

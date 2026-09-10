@@ -7,11 +7,13 @@ interface ReceiptUploadProps {
   value: string | null
   onChange: (value: string | null) => void
   onErrorMessage: (message: string) => void
+  /** Có truyền thì bấm vào ảnh xem trước sẽ mở modal xem/zoom (BillViewerDialog) thay vì không làm gì. */
+  onView?: (src: string) => void
 }
 
 // Ô chọn ảnh bill: kéo-thả, bấm để chọn, hoặc dán (Ctrl+V) ảnh từ clipboard.
 // Ảnh được nén phía trình duyệt trước khi lưu vào form (xem receiptUtils.ts).
-function ReceiptUpload({ value, onChange, onErrorMessage }: ReceiptUploadProps) {
+function ReceiptUpload({ value, onChange, onErrorMessage, onView }: ReceiptUploadProps) {
   const [dragActive, setDragActive] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
   const inputRef = React.useRef<HTMLInputElement>(null)
@@ -50,7 +52,17 @@ function ReceiptUpload({ value, onChange, onErrorMessage }: ReceiptUploadProps) 
   if (value) {
     return (
       <div className="relative w-full max-w-[220px] overflow-hidden rounded-md border border-input">
-        <img src={value} alt="Ảnh bill đã đính kèm" className="block max-h-52 w-full object-contain" />
+        {onView ? (
+          <button
+            type="button"
+            onClick={() => onView(value)}
+            className="block w-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <img src={value} alt="Ảnh bill đã đính kèm — bấm để phóng to" className="block max-h-52 w-full object-contain" />
+          </button>
+        ) : (
+          <img src={value} alt="Ảnh bill đã đính kèm" className="block max-h-52 w-full object-contain" />
+        )}
         <button
           type="button"
           onClick={() => onChange(null)}
