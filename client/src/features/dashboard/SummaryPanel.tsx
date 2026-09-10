@@ -30,8 +30,8 @@ function SummaryPanel({ summary, debts, members, settlements, isAdmin }: Summary
             onClick={() => setSelectedMember(members.find((m) => m.id === s.id) ?? null)}
             className="flex flex-col gap-1 rounded-lg border p-3 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:bg-accent/50"
           >
-            <div className="flex items-center justify-between gap-2">
-              <p className="min-w-0 truncate text-sm font-medium">{s.name}</p>
+            <div className="flex items-start justify-between gap-2">
+              <p className="min-w-0 break-words text-sm font-medium">{s.name}</p>
               <p
                 className={cn(
                   'shrink-0 text-sm font-semibold',
@@ -42,7 +42,7 @@ function SummaryPanel({ summary, debts, members, settlements, isAdmin }: Summary
                 {formatCurrency(s.balance)}
               </p>
             </div>
-            <p className="truncate text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Đã trả {formatCurrency(s.totalPaid)} · Phải chịu {formatCurrency(s.totalOwed)}
             </p>
             <p className="text-[11px] text-muted-foreground">

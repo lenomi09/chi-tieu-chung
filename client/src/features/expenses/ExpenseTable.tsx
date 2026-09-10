@@ -348,7 +348,7 @@ function ExpenseTable({ expenses, members, isAdmin }: ExpenseTableProps) {
                       </td>
                     )}
                     <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">{formatDate(e.date)}</td>
-                    <td className="max-w-[240px] truncate px-3 py-2">{e.description}</td>
+                    <td className="max-w-[240px] break-words px-3 py-2">{e.description}</td>
                     <td className="whitespace-nowrap px-3 py-2 text-right font-medium">{formatCurrency(e.amount)}</td>
                     <td className="whitespace-nowrap px-3 py-2">{memberName.get(e.payerId) ?? '?'}</td>
                     <td className="whitespace-nowrap px-3 py-2">
@@ -411,7 +411,7 @@ function ExpenseTable({ expenses, members, isAdmin }: ExpenseTableProps) {
                       />
                     )}
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{e.description}</p>
+                      <p className="break-words text-sm font-medium">{e.description}</p>
                       <p className="text-xs text-muted-foreground">
                         {formatDate(e.date)} · {memberName.get(e.payerId) ?? '?'} đã trả
                       </p>

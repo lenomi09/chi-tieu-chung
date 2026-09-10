@@ -263,17 +263,18 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
       ) : (
         <div className="flex flex-col gap-2">
           {pageItems.map((s) => (
-            <div key={s.id} className="flex items-center justify-between gap-2 rounded-lg border p-3">
-              <div className="flex min-w-0 items-center gap-2">
+            <div key={s.id} className="flex items-start justify-between gap-2 rounded-lg border p-3">
+              <div className="flex min-w-0 items-start gap-2">
                 {isAdmin && (
                   <Checkbox
+                    className="mt-0.5"
                     checked={selectedIds.has(s.id)}
                     onCheckedChange={(v) => toggleSelected(s.id, v === true)}
                     aria-label={`Chọn thanh toán ${memberName.get(s.fromId) ?? '?'} trả ${memberName.get(s.toId) ?? '?'}`}
                   />
                 )}
                 <div className="min-w-0">
-                  <p className="truncate text-sm">
+                  <p className="break-words text-sm">
                     <span className="font-medium">{memberName.get(s.fromId) ?? '?'}</span> trả cho{' '}
                     <span className="font-medium">{memberName.get(s.toId) ?? '?'}</span>
                   </p>

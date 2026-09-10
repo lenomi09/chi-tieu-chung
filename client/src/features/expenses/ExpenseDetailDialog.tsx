@@ -39,8 +39,8 @@ function ExpenseDetailDialog({ expense, memberName, onOpenChange, onViewReceipt 
         {expense && (
           <>
             <DialogHeader>
-              <div className="flex items-center gap-2 pr-6">
-                <DialogTitle className="min-w-0 flex-1 truncate">{expense.description}</DialogTitle>
+              <div className="flex items-start gap-2 pr-6">
+                <DialogTitle className="min-w-0 flex-1 break-words">{expense.description}</DialogTitle>
                 <ExpenseStatusBadge status={expense.status} />
               </div>
               <DialogDescription>{formatDate(expense.date)}</DialogDescription>

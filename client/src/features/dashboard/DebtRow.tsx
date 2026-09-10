@@ -56,10 +56,10 @@ function DebtRow({ debt, fromName, toName, isAdmin, isPending }: DebtRowProps) {
 
   return (
     <div className="flex items-center justify-between gap-2 px-3 py-2.5 text-sm">
-      <div className="flex min-w-0 items-center gap-1.5">
-        <span className="truncate font-medium">{fromName}</span>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+        <span className="break-words font-medium">{fromName}</span>
         <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <span className="truncate font-medium">{toName}</span>
+        <span className="break-words font-medium">{toName}</span>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <span className="font-semibold text-destructive">{formatCurrency(debt.amount)}</span>

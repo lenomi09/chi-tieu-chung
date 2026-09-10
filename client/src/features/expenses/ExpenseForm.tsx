@@ -373,7 +373,7 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
                   className="flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-sm hover:bg-accent/50"
                 >
                   <Checkbox checked={checked} onCheckedChange={(v) => toggleMember(m.id, v === true)} />
-                  <span className="truncate">{m.name}</span>
+                  <span className="break-words">{m.name}</span>
                 </label>
               )
             })}
@@ -470,7 +470,7 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
                                   checked={checked}
                                   onCheckedChange={(v) => toggleItemMember(item.id, m.id, v === true)}
                                 />
-                                <span className="truncate">{m.name}</span>
+                                <span className="break-words">{m.name}</span>
                               </label>
                             )
                           })}
@@ -513,7 +513,7 @@ function ExpenseForm({ members, expense, mode, onDone }: ExpenseFormProps) {
                                 checked={checked}
                                 onCheckedChange={(v) => toggleRemainingMember(m.id, v === true)}
                               />
-                              <span className="truncate">{m.name}</span>
+                              <span className="break-words">{m.name}</span>
                             </label>
                           )
                         })}

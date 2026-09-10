@@ -93,8 +93,8 @@ function MemberRow({ member, isAdmin }: { member: Member; isAdmin: boolean }) {
   }
 
   return (
-    <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-accent/50">
-      <span className="truncate text-sm">{member.name}</span>
+    <div className="flex items-start justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-accent/50">
+      <span className="min-w-0 break-words text-sm">{member.name}</span>
       {isAdmin && (
         <div className="flex shrink-0 items-center gap-1">
           <Button
