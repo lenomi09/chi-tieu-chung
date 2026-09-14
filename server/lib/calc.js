@@ -19,53 +19,66 @@ function resolveShares(e) {
   return e.shareMemberIds.map((memberId) => ({ memberId, amount: per }));
 }
 
+// Tăng nợ i->j thêm `amount`: trừ vào nợ chiều ngược (j->i) trước nếu có, phần
+// dư mới thật sự cộng thành nợ mới — giữ bất biến "1 trong 2 chiều luôn bằng 0".
+function increaseDebt(debt, i, j, amount) {
+  if (debt[j][i] > 0) {
+    const cancel = Math.min(debt[j][i], amount);
+    debt[j][i] -= cancel;
+    amount -= cancel;
+  }
+  debt[i][j] += amount;
+}
+
+// Áp 1 khoản thanh toán i->j: chỉ được làm giảm nợ i->j hiện có, tối thiểu 0 —
+// trả dư (hoặc trả khi không nợ) thì phần dư "mất tác dụng", không biến thành
+// nợ chiều ngược (khớp đúng ý nghĩa 1 lần thanh toán, không phải khoản chi).
+function applySettlement(debt, i, j, amount) {
+  const reduce = Math.min(debt[i][j], amount);
+  debt[i][j] -= reduce;
+}
+
 /**
  * Ma trận nợ "ai nợ ai" — nền tảng chung cho cả computeSummary và computeDebts,
  * để 2 phần luôn khớp nhau tuyệt đối.
  *
- * Nguyên tắc: nợ giữa 2 người được xác định TRƯỚC HẾT từ khoản chi (raw). Thanh
- * toán (settlement) chỉ có tác dụng làm GIẢM khoản nợ đó xuống tối thiểu là 0 —
- * không bao giờ vượt quá để tạo ra nợ chiều ngược lại. Vì vậy:
- * - Xoá 1 khoản chi thì nợ liên quan biến mất thật sự (không để lại nợ ảo).
- * - Thanh toán dư (nhiều hơn nợ thực tế, hoặc nợ gốc đã bị xoá) sẽ chỉ "hết tác
- *   dụng" chứ không biến thành nợ ngược.
+ * Nguyên tắc: xử lý khoản chi & thanh toán THEO THỨ TỰ THỜI GIAN (không phải
+ * cộng dồn tổng cả đời rồi mới trừ 1 lần ở cuối) — mỗi thanh toán chỉ xoá nợ
+ * đã phát sinh TÍNH ĐẾN THỜI ĐIỂM ĐÓ. Nhờ vậy:
+ * - Thanh toán xong, nợ về đúng 0 (không âm thầm để lại phần dư).
+ * - Khoản chi phát sinh SAU đó được tính là nợ mới hoàn toàn, không bị một
+ *   thanh toán cũ (đã dùng hết hoặc dư ra trước đó) âm thầm bù trừ tiếp.
+ * - Cùng ngày: khoản chi được tính trước thanh toán trong ngày đó (coi thanh
+ *   toán như "chốt sổ cuối ngày").
  */
 function computeDebtMatrix(members, expenses, settlements) {
   const ids = members.map((m) => m.id);
   const idx = new Map(ids.map((id, i) => [id, i]));
   const n = ids.length;
 
-  // raw[i][j] = tổng tiền mà người i nợ người j chỉ tính riêng từ khoản chi
-  // (i được tick chia, j là người trả)
-  const raw = Array.from({ length: n }, () => new Array(n).fill(0));
+  const events = [];
   for (const e of expenses) {
     const jPayer = idx.get(e.payerId);
     if (jPayer === undefined) continue;
     for (const { memberId, amount } of resolveShares(e)) {
       const iOwer = idx.get(memberId);
       if (iOwer === undefined || iOwer === jPayer) continue;
-      raw[iOwer][jPayer] += amount;
+      events.push({ date: e.date, kind: 0, i: iOwer, j: jPayer, amount });
     }
   }
-
-  // settled[i][j] = tổng tiền i đã thanh toán cho j
-  const settled = Array.from({ length: n }, () => new Array(n).fill(0));
   for (const s of settlements) {
     const i = idx.get(s.fromId);
     const j = idx.get(s.toId);
     if (i === undefined || j === undefined) continue;
-    settled[i][j] += s.amount;
+    events.push({ date: s.date, kind: 1, i, j, amount: s.amount });
   }
+  // sort() ổn định (stable) nên cùng ngày + cùng loại vẫn giữ nguyên thứ tự gốc.
+  events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.kind - b.kind));
 
-  // debt[i][j] = i còn nợ j bao nhiêu, sau khi trừ thanh toán, tối thiểu là 0.
   const debt = Array.from({ length: n }, () => new Array(n).fill(0));
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
-      if (i === j) continue;
-      const expenseNet = Math.max(0, raw[i][j] - raw[j][i]);
-      const settlementNet = Math.max(0, settled[i][j] - settled[j][i]);
-      debt[i][j] = Math.max(0, expenseNet - settlementNet);
-    }
+  for (const ev of events) {
+    if (ev.kind === 0) increaseDebt(debt, ev.i, ev.j, ev.amount);
+    else applySettlement(debt, ev.i, ev.j, ev.amount);
   }
 
   return { ids, debt };
