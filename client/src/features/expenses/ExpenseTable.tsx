@@ -9,13 +9,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { DatePicker } from '@/components/ui/date-picker'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAppState } from '@/context/AppStateContext'
 import { api } from '@/lib/api'
-import { formatCurrency, formatDate } from '@/lib/format'
+import { dateToIso, formatCurrency, formatDate } from '@/lib/format'
 import type { Expense, Member } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { BillViewerDialog } from './BillViewerDialog'
@@ -122,6 +123,8 @@ function ExpenseTable({ expenses, members, isAdmin }: ExpenseTableProps) {
   const [payerFilter, setPayerFilter] = React.useState('all')
   const [shareFilter, setShareFilter] = React.useState('all')
   const [statusFilter, setStatusFilter] = React.useState('all')
+  const [dateFrom, setDateFrom] = React.useState('')
+  const [dateTo, setDateTo] = React.useState('')
   const [page, setPage] = React.useState(1)
   const [billSrc, setBillSrc] = React.useState<string | null>(null)
   const [billLoadingId, setBillLoadingId] = React.useState<string | null>(null)
@@ -153,9 +156,11 @@ function ExpenseTable({ expenses, members, isAdmin }: ExpenseTableProps) {
       if (payerFilter !== 'all' && e.payerId !== payerFilter) return false
       if (shareFilter !== 'all' && !e.shareMemberIds.includes(shareFilter)) return false
       if (statusFilter !== 'all' && e.status !== statusFilter) return false
+      if (dateFrom && e.date < dateFrom) return false
+      if (dateTo && e.date > dateTo) return false
       return true
     })
-  }, [expenses, search, payerFilter, shareFilter, statusFilter])
+  }, [expenses, search, payerFilter, shareFilter, statusFilter, dateFrom, dateTo])
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, pageCount)
@@ -164,7 +169,7 @@ function ExpenseTable({ expenses, members, isAdmin }: ExpenseTableProps) {
   React.useEffect(() => {
     setPage(1)
     setSelectedIds(new Set())
-  }, [search, payerFilter, shareFilter, statusFilter])
+  }, [search, payerFilter, shareFilter, statusFilter, dateFrom, dateTo])
 
   const toggleSelected = (id: string, checked: boolean) => {
     setSelectedIds((prev) => {
@@ -187,12 +192,20 @@ function ExpenseTable({ expenses, members, isAdmin }: ExpenseTableProps) {
     })
   }
 
-  const hasActiveFilter = search.trim() !== '' || payerFilter !== 'all' || shareFilter !== 'all' || statusFilter !== 'all'
+  const hasActiveFilter =
+    search.trim() !== '' ||
+    payerFilter !== 'all' ||
+    shareFilter !== 'all' ||
+    statusFilter !== 'all' ||
+    dateFrom !== '' ||
+    dateTo !== ''
   const clearFilters = () => {
     setSearch('')
     setPayerFilter('all')
     setShareFilter('all')
     setStatusFilter('all')
+    setDateFrom('')
+    setDateTo('')
   }
 
   const handleBulkDelete = async () => {
@@ -228,6 +241,20 @@ function ExpenseTable({ expenses, members, isAdmin }: ExpenseTableProps) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             aria-label="Tìm khoản chi theo mô tả"
+          />
+          <DatePicker
+            value={dateFrom}
+            onChange={setDateFrom}
+            placeholder="Từ ngày"
+            aria-label="Từ ngày"
+            disabled={dateTo ? (d) => dateToIso(d) > dateTo : undefined}
+          />
+          <DatePicker
+            value={dateTo}
+            onChange={setDateTo}
+            placeholder="Đến ngày"
+            aria-label="Đến ngày"
+            disabled={dateFrom ? (d) => dateToIso(d) < dateFrom : undefined}
           />
           <Select value={payerFilter} onValueChange={setPayerFilter}>
             <SelectTrigger aria-label="Lọc theo người trả">
