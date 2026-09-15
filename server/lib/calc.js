@@ -75,7 +75,10 @@ function computeDebtMatrix(members, expenses, settlements) {
     const i = idx.get(s.fromId);
     const j = idx.get(s.toId);
     if (i === undefined || j === undefined) continue;
-    events.push({ date: s.date, kind: 1, i, j, amount: s.amount });
+    // effectiveAt (nếu có) ghi đè `date` chỉ để SẮP XẾP — dùng khi thanh toán
+    // được duyệt trong app trễ hơn ngày nó thực sự xảy ra, để không bị coi là
+    // tất toán luôn cả những khoản chi mới phát sinh sau đó nhưng trước ngày duyệt.
+    events.push({ date: s.effectiveAt || s.date, kind: 1, i, j, amount: s.amount });
   }
   // sort() ổn định (stable) nên cùng ngày + cùng loại vẫn giữ nguyên thứ tự gốc.
   events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.kind - b.kind));

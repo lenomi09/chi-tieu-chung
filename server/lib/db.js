@@ -73,6 +73,14 @@ async function doInit() {
   if (!(await columnExists('expenses', 'split_items'))) {
     await client.execute('ALTER TABLE expenses ADD COLUMN split_items TEXT');
   }
+  // NULL = dùng đúng `date` để sắp xếp thứ tự tính nợ (mặc định, đa số trường
+  // hợp). Có giá trị = mốc RIÊNG để sắp xếp, dùng khi 1 thanh toán được duyệt
+  // trong app trễ hơn ngày nó thực sự xảy ra (vd duyệt hộ sau vài hôm) — để
+  // không bị coi là "xoá nợ" luôn cả những khoản chi mới phát sinh sau đó
+  // nhưng trước ngày duyệt. Không hiển thị ra UI, chỉ ảnh hưởng thứ tự tính.
+  if (!(await columnExists('settlements', 'effective_at'))) {
+    await client.execute('ALTER TABLE settlements ADD COLUMN effective_at TEXT');
+  }
 }
 
 function init() {
@@ -261,7 +269,7 @@ async function deleteExpense(id) {
 async function getSettlements() {
   await init();
   const rs = await client.execute(
-    'SELECT id, date, from_id, to_id, amount, status FROM settlements ORDER BY date DESC, rowid DESC'
+    'SELECT id, date, from_id, to_id, amount, status, effective_at FROM settlements ORDER BY date DESC, rowid DESC'
   );
   return rs.rows.map((r) => ({
     id: r.id,
@@ -270,6 +278,7 @@ async function getSettlements() {
     toId: r.to_id,
     amount: r.amount,
     status: r.status,
+    effectiveAt: r.effective_at,
   }));
 }
 
@@ -286,6 +295,17 @@ async function addSettlement({ date, fromId, toId, amount, status = 'approved' }
 async function setSettlementStatus(id, status) {
   await init();
   const rs = await client.execute({ sql: 'UPDATE settlements SET status = ? WHERE id = ?', args: [status, id] });
+  return rs.rowsAffected > 0;
+}
+
+// Sửa ngày + mốc sắp xếp riêng (effectiveAt, có thể null) cho 1 thanh toán —
+// dùng khi thanh toán được duyệt trong app trễ hơn ngày nó thực sự xảy ra.
+async function correctSettlementTiming(id, { date, effectiveAt }) {
+  await init();
+  const rs = await client.execute({
+    sql: 'UPDATE settlements SET date = ?, effective_at = ? WHERE id = ?',
+    args: [date, effectiveAt, id],
+  });
   return rs.rowsAffected > 0;
 }
 
@@ -333,6 +353,7 @@ module.exports = {
   getSettlements,
   addSettlement,
   setSettlementStatus,
+  correctSettlementTiming,
   deleteSettlement,
   resetData,
   getState,
