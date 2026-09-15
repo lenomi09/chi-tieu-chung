@@ -1,6 +1,6 @@
 import { AlertTriangle, Check, Pencil, Trash2, X } from 'lucide-react'
 import * as React from 'react'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -254,14 +254,7 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
     <div className="flex flex-col gap-3">
       {mismatched.length > 0 && (
         <Alert variant="warning">
-          <AlertTitle>
-            {mismatched.length} khoản thanh toán chưa khớp với số nợ thực tế lúc tất toán
-          </AlertTitle>
-          <AlertDescription>
-            Số tiền ghi nhận khác với số nợ ngay trước đó (trả thiếu/dư, hoặc tính nhầm do trùng khoản chi khác cùng
-            lúc). Bấm vào từng khoản có dấu <AlertTriangle className="inline size-3 align-text-top" /> bên dưới để
-            xem chi tiết.
-          </AlertDescription>
+          <AlertTitle>{mismatched.length} khoản thanh toán chưa khớp số nợ — bấm vào để xem chi tiết</AlertTitle>
         </Alert>
       )}
 

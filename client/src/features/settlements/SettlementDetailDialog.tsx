@@ -1,6 +1,6 @@
 import { Loader2 } from 'lucide-react'
 import * as React from 'react'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { api } from '@/lib/api'
@@ -78,9 +78,6 @@ function SettlementDetailDialog({ settlement, memberName, onOpenChange }: Settle
                   ) : (
                     <Alert variant="warning">
                       <AlertTitle>{diff > 0 ? `Trả dư ${formatCurrency(diff)}` : `Trả thiếu ${formatCurrency(-diff)}`}</AlertTitle>
-                      <AlertDescription>
-                        So với nợ thực tế ({formatCurrency(expected)}) ngay trước khi tất toán.
-                      </AlertDescription>
                     </Alert>
                   )
                 })()}

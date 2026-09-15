@@ -9,7 +9,7 @@ const alertVariants = cva('relative flex w-full gap-3 rounded-lg border p-3 text
       default: 'bg-muted/50 border-border text-foreground',
       destructive: 'border-destructive/30 bg-destructive/10 text-destructive',
       success: 'border-success/30 bg-success/10 text-success',
-      warning: 'border-warning/40 bg-warning/15 text-warning-foreground',
+      warning: 'border-warning/40 bg-warning/15 text-warning',
     },
   },
   defaultVariants: { variant: 'default' },
