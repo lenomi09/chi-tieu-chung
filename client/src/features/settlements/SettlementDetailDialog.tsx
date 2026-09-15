@@ -1,8 +1,10 @@
 import { Loader2 } from 'lucide-react'
 import * as React from 'react'
 import { Alert, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { useAppState } from '@/context/AppStateContext'
 import { api } from '@/lib/api'
 import { formatCurrency, formatDate, formatDateOnly } from '@/lib/format'
 import type { Settlement, SettlementExplain } from '@/lib/types'
@@ -10,12 +12,15 @@ import type { Settlement, SettlementExplain } from '@/lib/types'
 interface SettlementDetailDialogProps {
   settlement: Settlement | null
   memberName: Map<string, string>
+  isAdmin: boolean
   onOpenChange: (open: boolean) => void
 }
 
-function SettlementDetailDialog({ settlement, memberName, onOpenChange }: SettlementDetailDialogProps) {
+function SettlementDetailDialog({ settlement, memberName, isAdmin, onOpenChange }: SettlementDetailDialogProps) {
+  const { mutate } = useAppState()
   const [explain, setExplain] = React.useState<SettlementExplain | null>(null)
   const [loading, setLoading] = React.useState(false)
+  const [fixing, setFixing] = React.useState(false)
   const settlementId = settlement?.id
 
   React.useEffect(() => {
@@ -71,13 +76,32 @@ function SettlementDetailDialog({ settlement, memberName, onOpenChange }: Settle
                   const expected = explain.debtBeforeAToB > 0 ? explain.debtBeforeAToB : explain.debtBeforeBToA
                   const diff = explain.paidAmount - expected
                   const matches = Math.abs(diff) <= 1
+                  const handleFix = async () => {
+                    if (!settlementId) return
+                    setFixing(true)
+                    try {
+                      await mutate(() => api.fixSettlementAmount(settlementId))
+                      onOpenChange(false)
+                    } catch (err) {
+                      console.error(err)
+                    } finally {
+                      setFixing(false)
+                    }
+                  }
                   return matches ? (
                     <Alert variant="success">
                       <AlertTitle>Khớp đúng số nợ</AlertTitle>
                     </Alert>
                   ) : (
                     <Alert variant="warning">
-                      <AlertTitle>{diff > 0 ? `Trả dư ${formatCurrency(diff)}` : `Trả thiếu ${formatCurrency(-diff)}`}</AlertTitle>
+                      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <AlertTitle>{diff > 0 ? `Trả dư ${formatCurrency(diff)}` : `Trả thiếu ${formatCurrency(-diff)}`}</AlertTitle>
+                        {isAdmin && (
+                          <Button type="button" size="sm" variant="outline" loading={fixing} onClick={handleFix}>
+                            Sửa đúng số tiền
+                          </Button>
+                        )}
+                      </div>
                     </Alert>
                   )
                 })()}

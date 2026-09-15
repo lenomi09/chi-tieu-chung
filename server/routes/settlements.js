@@ -105,6 +105,37 @@ router.put(
   })
 );
 
+// Tự sửa số tiền về ĐÚNG nợ thực tế lúc tất toán — server tự tính lại bằng
+// checkSettlements, KHÔNG nhận số tiền từ client, để không mở lại đường gõ
+// tay gây lệch số (xem lý do ở PUT /settlements/:id/date phía trên).
+router.put(
+  '/settlements/:id/fix-amount',
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    const { members, expenses, settlements } = await db.getState();
+    const target = settlements.find((s) => s.id === req.params.id);
+    if (!target) return res.status(404).json({ error: 'Không tìm thấy thanh toán' });
+    if (target.status !== 'approved') {
+      return res.status(400).json({ error: 'Chỉ sửa được thanh toán đã duyệt' });
+    }
+
+    const approvedExpenses = expenses.filter((e) => e.status === 'approved');
+    const approvedSettlements = settlements.filter((s) => s.status === 'approved');
+    const [check] = calc.checkSettlements(members, approvedExpenses, approvedSettlements).filter((c) => c.settlementId === target.id);
+    if (!check || check.expectedAmount === null) {
+      return res.status(400).json({ error: 'Không tính được số nợ thực tế cho thanh toán này' });
+    }
+    if (check.expectedAmount <= 0) {
+      // Không nợ gì lúc đó -> đúng ra không nên có thanh toán này, xoá thay vì để amount = 0.
+      await db.deleteSettlement(target.id);
+      return res.json(await buildState(req));
+    }
+
+    await db.correctSettlementAmount(target.id, check.expectedAmount);
+    res.json(await buildState(req));
+  })
+);
+
 router.delete(
   '/settlements/:id',
   requireAdmin,

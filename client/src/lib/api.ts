@@ -67,6 +67,7 @@ export const api = {
     request<AppState>(`/api/settlement-requests/${id}/reject`, { method: 'POST' }),
   updateSettlementDate: (id: string, date: string) =>
     request<AppState>(`/api/settlements/${id}/date`, { method: 'PUT', body: JSON.stringify({ date }) }),
+  fixSettlementAmount: (id: string) => request<AppState>(`/api/settlements/${id}/fix-amount`, { method: 'PUT' }),
   deleteSettlement: (id: string) => request<AppState>(`/api/settlements/${id}`, { method: 'DELETE' }),
   explainSettlement: (id: string) => request<SettlementExplain>(`/api/settlements/${id}/explain`),
 

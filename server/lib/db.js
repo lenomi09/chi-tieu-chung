@@ -326,6 +326,15 @@ async function correctSettlementTiming(id, { date, effectiveAt }) {
   return rs.rowsAffected > 0;
 }
 
+// Sửa lại số tiền cho ĐÚNG nợ thực tế — chỉ gọi với amount do SERVER tự tính
+// (calc.explainSettlement), không bao giờ nhận số client tự gõ, để giữ đúng
+// nguyên tắc "không cho nhập tay số tiền thanh toán" (xem DebtRow.tsx).
+async function correctSettlementAmount(id, amount) {
+  await init();
+  const rs = await client.execute({ sql: 'UPDATE settlements SET amount = ? WHERE id = ?', args: [amount, id] });
+  return rs.rowsAffected > 0;
+}
+
 async function deleteSettlement(id) {
   await init();
   const rs = await client.execute({ sql: 'DELETE FROM settlements WHERE id = ?', args: [id] });
@@ -372,6 +381,7 @@ module.exports = {
   addSettlement,
   setSettlementStatus,
   correctSettlementTiming,
+  correctSettlementAmount,
   deleteSettlement,
   resetData,
   getState,

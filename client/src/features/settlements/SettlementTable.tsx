@@ -397,6 +397,7 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
       <SettlementDetailDialog
         settlement={detailSettlement}
         memberName={memberName}
+        isAdmin={isAdmin}
         onOpenChange={(open) => !open && setDetailSettlement(null)}
       />
     </div>

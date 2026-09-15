@@ -195,3 +195,62 @@ test('sửa ngày thanh toán: admin sửa được và xoá luôn effective_at 
   assert.equal(entry.date, '2026-09-15');
   assert.equal(entry.effectiveAt, null, 'sửa ngày phải xoá effective_at cũ (nếu có)');
 });
+
+test('tự sửa số tiền thanh toán về đúng nợ thực tế: khớp lại đúng, không nhận số từ client, hết nợ thì xoá luôn', async () => {
+  const { cookie } = await api('/api/login', { method: 'POST', body: { password: 'test-password' } });
+  const addMember = async (name) => {
+    const r = await api('/api/members', { method: 'POST', cookie, body: { name } });
+    return r.data.members.find((m) => m.name === name).id;
+  };
+  const an = await addMember('An_sua_so_tien');
+  const binh = await addMember('Binh_sua_so_tien');
+
+  await api('/api/expenses', {
+    method: 'POST',
+    cookie,
+    body: { date: '2026-09-01', amount: 70000, payerId: binh, shareMemberIds: [an, binh] }, // An nợ Binh 35.000
+  });
+
+  // Ghi nhận trả THIẾU: chỉ 20.000 thay vì đúng 35.000.
+  const created = await api('/api/settlements', {
+    method: 'POST',
+    cookie,
+    body: { date: '2026-09-05', fromId: an, toId: binh, amount: 20000 },
+  });
+  const id = created.data.settlements.find((s) => s.fromId === an && s.toId === binh).id;
+  assert.equal(created.data.settlements.find((s) => s.id === id).matches, false, 'phải bị đánh dấu lệch');
+
+  const forbidden = await api(`/api/settlements/${id}/fix-amount`, { method: 'PUT' });
+  assert.equal(forbidden.status, 401, 'người ngoài không được sửa');
+
+  const notFound = await api('/api/settlements/khong-ton-tai/fix-amount', { method: 'PUT', cookie });
+  assert.equal(notFound.status, 404);
+
+  const fixed = await api(`/api/settlements/${id}/fix-amount`, { method: 'PUT', cookie });
+  assert.equal(fixed.status, 200);
+  const entry = fixed.data.settlements.find((s) => s.id === id);
+  assert.equal(entry.amount, 35000, 'phải tự sửa đúng bằng nợ thực tế, không phải số client gửi (không gửi gì)');
+  assert.equal(entry.matches, true);
+
+  // Gọi sửa lại lần nữa khi đã khớp đúng rồi -> idempotent, vẫn giữ nguyên 35.000.
+  const fixedAgain = await api(`/api/settlements/${id}/fix-amount`, { method: 'PUT', cookie });
+  assert.equal(fixedAgain.status, 200);
+  const entryAgain = fixedAgain.data.settlements.find((s) => s.id === id);
+  assert.equal(entryAgain.amount, 35000);
+  assert.equal(entryAgain.matches, true);
+
+  // Thanh toán không hề có nợ nào đứng sau nó (ghi nhầm hoàn toàn) -> tự xoá thay vì để amount=0.
+  const spurious = await api('/api/settlements', {
+    method: 'POST',
+    cookie,
+    body: { date: '2026-09-06', fromId: binh, toId: an, amount: 99999 },
+  });
+  const spuriousId = spurious.data.settlements.find((s) => s.fromId === binh && s.toId === an).id;
+  const afterFix = await api(`/api/settlements/${spuriousId}/fix-amount`, { method: 'PUT', cookie });
+  assert.equal(afterFix.status, 200);
+  assert.equal(
+    afterFix.data.settlements.some((s) => s.id === spuriousId),
+    false,
+    'không có nợ gì để tất toán -> phải bị xoá'
+  );
+});
