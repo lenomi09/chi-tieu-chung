@@ -68,7 +68,9 @@ function computeDebtMatrix(members, expenses, settlements) {
     for (const { memberId, amount } of resolveShares(e)) {
       const iOwer = idx.get(memberId);
       if (iOwer === undefined || iOwer === jPayer) continue;
-      events.push({ date: e.date, kind: 0, i: iOwer, j: jPayer, amount });
+      // effectiveAt (nếu có) ghi đè `date` chỉ để SẮP XẾP — dùng khi khoản chi
+      // này cần tính trước/sau 1 khoản khác cùng ngày cho đúng thứ tự thực tế.
+      events.push({ date: e.effectiveAt || e.date, kind: 0, i: iOwer, j: jPayer, amount });
     }
   }
   for (const s of settlements) {
@@ -168,10 +170,11 @@ function explainSettlement(members, expenses, settlements, settlementId) {
   for (const e of expenses) {
     for (const { memberId, amount } of resolveShares(e)) {
       if (memberId === e.payerId) continue;
+      const eventDate = e.effectiveAt || e.date;
       if (memberId === A && e.payerId === B) {
-        events.push({ date: e.date, kind: 0, ower: A, amount, expenseId: e.id, description: e.description });
+        events.push({ date: eventDate, kind: 0, ower: A, amount, expenseId: e.id, description: e.description });
       } else if (memberId === B && e.payerId === A) {
-        events.push({ date: e.date, kind: 0, ower: B, amount, expenseId: e.id, description: e.description });
+        events.push({ date: eventDate, kind: 0, ower: B, amount, expenseId: e.id, description: e.description });
       }
     }
   }

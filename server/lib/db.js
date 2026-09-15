@@ -74,12 +74,16 @@ async function doInit() {
     await client.execute('ALTER TABLE expenses ADD COLUMN split_items TEXT');
   }
   // NULL = dùng đúng `date` để sắp xếp thứ tự tính nợ (mặc định, đa số trường
-  // hợp). Có giá trị = mốc RIÊNG để sắp xếp, dùng khi 1 thanh toán được duyệt
-  // trong app trễ hơn ngày nó thực sự xảy ra (vd duyệt hộ sau vài hôm) — để
-  // không bị coi là "xoá nợ" luôn cả những khoản chi mới phát sinh sau đó
-  // nhưng trước ngày duyệt. Không hiển thị ra UI, chỉ ảnh hưởng thứ tự tính.
+  // hợp). Có giá trị = mốc RIÊNG để sắp xếp — dùng khi 1 khoản chi/thanh toán
+  // được ghi vào app trễ hơn (hoặc sớm hơn) ngày nó thực sự xảy ra so với các
+  // khoản khác cùng ngày, để thứ tự tính nợ khớp đúng thực tế thay vì chỉ dựa
+  // vào "Ngày" (chỉ có độ chính xác theo ngày, không phân biệt được thứ tự
+  // trong cùng 1 ngày). Không hiển thị ra UI, chỉ ảnh hưởng thứ tự tính.
   if (!(await columnExists('settlements', 'effective_at'))) {
     await client.execute('ALTER TABLE settlements ADD COLUMN effective_at TEXT');
+  }
+  if (!(await columnExists('expenses', 'effective_at'))) {
+    await client.execute('ALTER TABLE expenses ADD COLUMN effective_at TEXT');
   }
 }
 
@@ -142,7 +146,7 @@ async function getExpenses() {
   // qua getExpenseReceipt() khi người dùng thực sự bấm xem.
   const [expRs, shareRs] = await Promise.all([
     client.execute(
-      "SELECT id, date, description, amount, payer_id, status, (receipt IS NOT NULL) AS has_receipt, split_items FROM expenses ORDER BY date DESC, rowid DESC"
+      "SELECT id, date, description, amount, payer_id, status, (receipt IS NOT NULL) AS has_receipt, split_items, effective_at FROM expenses ORDER BY date DESC, rowid DESC"
     ),
     client.execute('SELECT expense_id, member_id, amount FROM expense_shares'),
   ]);
@@ -170,6 +174,7 @@ async function getExpenses() {
     shareMemberIds: sharesByExpense.get(r.id) || [],
     shareAmounts: shareAmountsByExpense.get(r.id) || null,
     splitItems: parseSplitItems(r.split_items),
+    effectiveAt: r.effective_at,
   }));
 }
 
@@ -246,6 +251,18 @@ async function updateExpense(
     })),
   ];
   await client.batch(statements, 'write');
+}
+
+// Sửa mốc sắp xếp riêng (effectiveAt, có thể null) cho 1 khoản chi — không
+// đụng tới `date` hiển thị. Dùng khi khoản chi này cần tính SAU/TRƯỚC 1 khoản
+// khác cùng ngày để đúng thứ tự thực tế (xem effective_at ở doInit()).
+async function correctExpenseTiming(id, { effectiveAt }) {
+  await init();
+  const rs = await client.execute({
+    sql: 'UPDATE expenses SET effective_at = ? WHERE id = ?',
+    args: [effectiveAt, id],
+  });
+  return rs.rowsAffected > 0;
 }
 
 async function expenseExists(id) {
@@ -346,6 +363,7 @@ module.exports = {
   getExpenses,
   addExpense,
   updateExpense,
+  correctExpenseTiming,
   expenseExists,
   getExpenseReceipt,
   setExpenseStatus,
