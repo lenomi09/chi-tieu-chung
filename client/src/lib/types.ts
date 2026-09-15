@@ -100,6 +100,8 @@ export interface SettlementExplain {
   fromId: string
   toId: string
   items: SettlementExplainItem[]
+  /** Ngày của lần tất toán liền trước giữa 2 người này — null nếu đây là lần đầu (tính từ đầu). */
+  sinceDate: string | null
   /** Nợ còn lại (fromId nợ toId / toId nợ fromId) ngay trước khi thanh toán này tất toán về 0 */
   debtBeforeAToB: number
   debtBeforeBToA: number

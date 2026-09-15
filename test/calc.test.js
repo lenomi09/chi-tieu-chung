@@ -191,6 +191,7 @@ test('explainSettlement: liệt kê đúng các khoản chi giữa 2 người k�
   assert.equal(explain1.debtBeforeAToB, 50000);
   assert.equal(explain1.debtBeforeBToA, 0);
   assert.equal(explain1.paidAmount, 50000);
+  assert.equal(explain1.sinceDate, null); // chưa từng tất toán trước đó -> từ đầu
 
   // Thêm 1 khoản chi mới SAU s1 rồi tất toán lần 2 (s2) -> chỉ liệt kê khoản mới đó.
   const laterExpense = {
@@ -209,6 +210,7 @@ test('explainSettlement: liệt kê đúng các khoản chi giữa 2 người k�
   assert.equal(explain2.items.length, 1);
   assert.equal(explain2.items[0].expenseId, 'e3');
   assert.equal(explain2.debtBeforeAToB, 10000);
+  assert.equal(explain2.sinceDate, '2026-09-05'); // tính từ ngày tất toán lần trước (s1)
 
   // Thanh toán không tồn tại -> null.
   assert.equal(explainSettlement(members, expenses, settlements, 'khong-ton-tai'), null);

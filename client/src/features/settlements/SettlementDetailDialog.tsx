@@ -116,7 +116,17 @@ function SettlementDetailDialog({ settlement, memberName, onOpenChange }: Settle
                 <div className="flex flex-col gap-1.5">
                   <p className="text-xs text-muted-foreground">
                     Khoản chi được tất toán ({explain.items.length === 0 ? 'không có' : `${explain.items.length} khoản`}
-                    ) — tính từ lần thanh toán trước giữa 2 người (hoặc từ đầu)
+                    )
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Tính nợ từ ngày{' '}
+                    <span className="font-medium text-foreground">
+                      {explain.sinceDate ? formatDate(explain.sinceDate) : 'lúc bắt đầu'}
+                    </span>{' '}
+                    đến ngày{' '}
+                    <span className="font-medium text-foreground">
+                      {formatDateOnly(settlement.effectiveAt || settlement.date)}
+                    </span>
                   </p>
                   {explain.items.length === 0 ? (
                     <p className="rounded-md border px-3 py-2 text-muted-foreground">

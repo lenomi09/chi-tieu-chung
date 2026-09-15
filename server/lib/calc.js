@@ -181,13 +181,14 @@ function explainSettlement(members, expenses, settlements, settlementId) {
   for (const s of settlements) {
     const between = (s.fromId === A && s.toId === B) || (s.fromId === B && s.toId === A);
     if (!between) continue;
-    events.push({ date: s.effectiveAt || s.date, kind: 1, id: s.id });
+    events.push({ date: s.effectiveAt || s.date, kind: 1, id: s.id, displayDate: s.date });
   }
   events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.kind - b.kind));
 
   let debtAB = 0; // A nợ B
   let debtBA = 0; // B nợ A
   let items = [];
+  let sinceDate = null; // ngày của lần tất toán liền trước (null = từ đầu, chưa từng tất toán)
 
   for (const ev of events) {
     if (ev.kind === 0) {
@@ -212,6 +213,7 @@ function explainSettlement(members, expenses, settlements, settlementId) {
         fromId: A,
         toId: B,
         items,
+        sinceDate,
         debtBeforeAToB: round(debtAB),
         debtBeforeBToA: round(debtBA),
         paidAmount: round(target.amount),
@@ -221,6 +223,7 @@ function explainSettlement(members, expenses, settlements, settlementId) {
       debtAB = 0;
       debtBA = 0;
       items = [];
+      sinceDate = ev.displayDate;
     }
   }
   return null;
