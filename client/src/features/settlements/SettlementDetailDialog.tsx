@@ -4,7 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { api } from '@/lib/api'
-import { formatCurrency, formatDate } from '@/lib/format'
+import { formatCurrency, formatDate, formatDateOnly } from '@/lib/format'
 import type { Settlement, SettlementExplain } from '@/lib/types'
 
 interface SettlementDetailDialogProps {
@@ -51,10 +51,24 @@ function SettlementDetailDialog({ settlement, memberName, onOpenChange }: Settle
               <DialogTitle className="pr-6">
                 {fromName} trả cho {toName}
               </DialogTitle>
-              <DialogDescription>
-                {formatDate(settlement.date)} · {formatCurrency(settlement.amount)}
-              </DialogDescription>
+              <DialogDescription>{formatCurrency(settlement.amount)}</DialogDescription>
             </DialogHeader>
+
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground">Ngày duyệt thanh toán</p>
+                <p className="font-medium">{formatDate(settlement.date)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Tính nợ đến ngày</p>
+                <p className="font-medium">
+                  {formatDateOnly(settlement.effectiveAt || settlement.date)}
+                  {settlement.effectiveAt && formatDateOnly(settlement.effectiveAt) !== formatDate(settlement.date) && (
+                    <span className="ml-1 text-xs font-normal text-warning">(đã điều chỉnh)</span>
+                  )}
+                </p>
+              </div>
+            </div>
 
             {loading ? (
               <div className="flex h-24 items-center justify-center text-muted-foreground">

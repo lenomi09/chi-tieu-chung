@@ -10,7 +10,7 @@ import { Pagination } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAppState } from '@/context/AppStateContext'
 import { api } from '@/lib/api'
-import { formatCurrency, formatDate } from '@/lib/format'
+import { formatCurrency, formatDate, formatDateOnly } from '@/lib/format'
 import type { Member, RequestStatus, Settlement } from '@/lib/types'
 import { SettlementDetailDialog } from './SettlementDetailDialog'
 
@@ -317,7 +317,12 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
                       />
                     )}
                   </p>
-                  <p className="text-xs text-muted-foreground">{formatDate(s.date)}</p>
+                  <p className="text-xs text-muted-foreground">Ngày duyệt: {formatDate(s.date)}</p>
+                  {s.effectiveAt && formatDateOnly(s.effectiveAt) !== formatDate(s.date) && (
+                    <p className="text-xs text-muted-foreground">
+                      Tính nợ đến: <span className="font-medium">{formatDateOnly(s.effectiveAt)}</span>
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-3" onClick={(ev) => ev.stopPropagation()}>

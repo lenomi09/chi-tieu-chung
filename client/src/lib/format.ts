@@ -11,6 +11,13 @@ export function formatDate(isoDate: string): string {
   return dateFormatter.format(d)
 }
 
+// Giống formatDate nhưng an toàn với chuỗi có kèm giờ (vd "2026-09-15T23:59:59")
+// — chỉ lấy đúng phần "YYYY-MM-DD" đầu chuỗi trước khi định dạng. Dùng cho
+// effectiveAt (mốc tính nợ riêng), có thể là ngày thường hoặc có giờ.
+export function formatDateOnly(value: string): string {
+  return formatDate(value.slice(0, 10))
+}
+
 export function todayIso(): string {
   return dateToIso(new Date())
 }

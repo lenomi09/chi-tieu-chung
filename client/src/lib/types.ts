@@ -38,6 +38,8 @@ export interface Settlement {
   toId: string
   amount: number
   status: RequestStatus
+  /** Mốc RIÊNG để tính thứ tự nợ, khác `date` khi thanh toán được duyệt trễ hơn ngày nó thực sự xảy ra — null = dùng đúng `date`. */
+  effectiveAt: string | null
   /** Số nợ thực tế ngay trước khi thanh toán này tất toán — null nếu chưa duyệt (chưa áp dụng). */
   expectedAmount: number | null
   /** true nếu amount khớp expectedAmount (trong sai số làm tròn), false nếu lệch, null nếu chưa duyệt. */
