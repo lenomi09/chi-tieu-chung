@@ -12,7 +12,7 @@ import { Pagination } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAppState } from '@/context/AppStateContext'
 import { api } from '@/lib/api'
-import { formatCurrency, formatDate, formatDateOnly } from '@/lib/format'
+import { dateToIso, formatCurrency, formatDate, formatDateOnly } from '@/lib/format'
 import type { Member, RequestStatus, Settlement } from '@/lib/types'
 import { SettlementDetailDialog } from './SettlementDetailDialog'
 
@@ -169,6 +169,8 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
   const [fromFilter, setFromFilter] = React.useState('all')
   const [toFilter, setToFilter] = React.useState('all')
   const [statusFilter, setStatusFilter] = React.useState('all')
+  const [dateFrom, setDateFrom] = React.useState('')
+  const [dateTo, setDateTo] = React.useState('')
   const [page, setPage] = React.useState(1)
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
   const [bulkDeleting, setBulkDeleting] = React.useState(false)
@@ -185,9 +187,11 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
         if (fromFilter !== 'all' && s.fromId !== fromFilter) return false
         if (toFilter !== 'all' && s.toId !== toFilter) return false
         if (statusFilter !== 'all' && s.status !== statusFilter) return false
+        if (dateFrom && s.date < dateFrom) return false
+        if (dateTo && s.date > dateTo) return false
         return true
       }),
-    [settlements, fromFilter, toFilter, statusFilter]
+    [settlements, fromFilter, toFilter, statusFilter, dateFrom, dateTo]
   )
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, pageCount)
@@ -196,7 +200,7 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
   React.useEffect(() => {
     setPage(1)
     setSelectedIds(new Set())
-  }, [fromFilter, toFilter, statusFilter])
+  }, [fromFilter, toFilter, statusFilter, dateFrom, dateTo])
 
   const toggleSelected = (id: string, checked: boolean) => {
     setSelectedIds((prev) => {
@@ -243,11 +247,14 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
     }
   }
 
-  const hasActiveFilter = fromFilter !== 'all' || toFilter !== 'all' || statusFilter !== 'all'
+  const hasActiveFilter =
+    fromFilter !== 'all' || toFilter !== 'all' || statusFilter !== 'all' || dateFrom !== '' || dateTo !== ''
   const clearFilters = () => {
     setFromFilter('all')
     setToFilter('all')
     setStatusFilter('all')
+    setDateFrom('')
+    setDateTo('')
   }
 
   return (
@@ -259,7 +266,21 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <DatePicker
+            value={dateFrom}
+            onChange={setDateFrom}
+            placeholder="Từ ngày"
+            aria-label="Từ ngày"
+            disabled={dateTo ? (d) => dateToIso(d) > dateTo : undefined}
+          />
+          <DatePicker
+            value={dateTo}
+            onChange={setDateTo}
+            placeholder="Đến ngày"
+            aria-label="Đến ngày"
+            disabled={dateFrom ? (d) => dateToIso(d) < dateFrom : undefined}
+          />
           <Select value={fromFilter} onValueChange={setFromFilter}>
             <SelectTrigger aria-label="Lọc theo người trả">
               <SelectValue />
