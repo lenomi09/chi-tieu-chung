@@ -1,10 +1,12 @@
-import { AlertTriangle, Check, Trash2, X } from 'lucide-react'
+import { AlertTriangle, Check, Pencil, Trash2, X } from 'lucide-react'
 import * as React from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { DatePicker } from '@/components/ui/date-picker'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Pagination } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -27,10 +29,63 @@ const statusVariant: Record<RequestStatus, 'success' | 'warning' | 'destructive'
   rejected: 'destructive',
 }
 
+// Chỉ cho sửa NGÀY (xem lý do ở server/routes/settlements.js) — không cho sửa
+// người trả/người nhận/số tiền, để giữ đúng nguyên tắc "số tiền luôn tự khớp
+// đúng nợ lúc bấm Đã trả" (DebtRow.tsx), tránh mở lại đường gõ tay gây lệch số.
+function EditSettlementDateDialog({
+  settlement,
+  onOpenChange,
+}: {
+  settlement: Settlement | null
+  onOpenChange: (open: boolean) => void
+}) {
+  const { mutate } = useAppState()
+  const [date, setDate] = React.useState('')
+  const [saving, setSaving] = React.useState(false)
+
+  React.useEffect(() => {
+    setDate(settlement?.date ?? '')
+  }, [settlement])
+
+  const handleSave = async () => {
+    if (!settlement || !date) return
+    setSaving(true)
+    try {
+      await mutate(() => api.updateSettlementDate(settlement.id, date))
+      onOpenChange(false)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={!!settlement} onOpenChange={onOpenChange}>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+        {settlement && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Sửa ngày thanh toán</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col gap-3">
+              <DatePicker value={date} onChange={setDate} placeholder="Chọn ngày" aria-label="Ngày thanh toán" />
+              <Button type="button" loading={saving} disabled={!date} onClick={handleSave}>
+                Lưu
+              </Button>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function SettlementRowActions({ settlement, isAdmin }: { settlement: Settlement; isAdmin: boolean }) {
   const { mutate } = useAppState()
   const confirm = useConfirm()
   const [busy, setBusy] = React.useState(false)
+  const [editing, setEditing] = React.useState(false)
 
   if (!isAdmin) return null
 
@@ -46,7 +101,7 @@ function SettlementRowActions({ settlement, isAdmin }: { settlement: Settlement;
   }
 
   return (
-    <div className="flex items-center justify-end gap-1">
+    <div className="flex items-center justify-end gap-1" onClick={(ev) => ev.stopPropagation()}>
       {settlement.status === 'pending' && (
         <>
           <Button
@@ -74,6 +129,15 @@ function SettlementRowActions({ settlement, isAdmin }: { settlement: Settlement;
       <Button
         size="icon"
         variant="ghost"
+        className="h-7 w-7"
+        aria-label="Sửa ngày thanh toán"
+        onClick={() => setEditing(true)}
+      >
+        <Pencil className="size-3.5" />
+      </Button>
+      <Button
+        size="icon"
+        variant="ghost"
         className="h-7 w-7 hover:text-destructive"
         disabled={busy}
         aria-label="Xoá thanh toán"
@@ -90,6 +154,7 @@ function SettlementRowActions({ settlement, isAdmin }: { settlement: Settlement;
       >
         <Trash2 className="size-3.5" />
       </Button>
+      <EditSettlementDateDialog settlement={editing ? settlement : null} onOpenChange={setEditing} />
     </div>
   )
 }

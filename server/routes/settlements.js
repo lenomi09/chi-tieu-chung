@@ -89,6 +89,22 @@ router.post(
   })
 );
 
+// Chỉ cho sửa NGÀY — không cho sửa người trả/người nhận/số tiền, để giữ đúng
+// nguyên tắc "số tiền luôn tự khớp đúng nợ lúc bấm Đã trả" (xem DebtRow.tsx),
+// tránh mở lại đường gõ tay gây lệch số như các lần đã gặp phải. Sửa ngày thì
+// xoá luôn effective_at cũ (nếu có) vì mốc kỹ thuật đó gắn với ngày cũ, không
+// còn đúng nữa sau khi người dùng tự sửa lại ngày.
+router.put(
+  '/settlements/:id/date',
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    if (!req.body.date) return res.status(400).json({ error: 'Vui lòng chọn ngày' });
+    const ok = await db.correctSettlementTiming(req.params.id, { date: req.body.date, effectiveAt: null });
+    if (!ok) return res.status(404).json({ error: 'Không tìm thấy thanh toán' });
+    res.json(await buildState(req));
+  })
+);
+
 router.delete(
   '/settlements/:id',
   requireAdmin,

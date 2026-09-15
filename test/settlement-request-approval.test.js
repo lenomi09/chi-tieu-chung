@@ -159,3 +159,39 @@ test('xoá thanh toán: admin xoá được (kể cả đã duyệt), người n
     'thanh toán đã duyệt vẫn xoá được và biến mất khỏi state'
   );
 });
+
+test('sửa ngày thanh toán: admin sửa được và xoá luôn effective_at cũ, người ngoài không được, thiếu ngày bị từ chối', async () => {
+  const { cookie } = await api('/api/login', { method: 'POST', body: { password: 'test-password' } });
+  const addMember = async (name) => {
+    const r = await api('/api/members', { method: 'POST', cookie, body: { name } });
+    return r.data.members.find((m) => m.name === name).id;
+  };
+  const an = await addMember('An_sua_ngay_ttoan');
+  const binh = await addMember('Binh_sua_ngay_ttoan');
+
+  const created = await api('/api/settlements', {
+    method: 'POST',
+    cookie,
+    body: { date: '2026-09-16', fromId: an, toId: binh, amount: 20000 },
+  });
+  const id = created.data.settlements.find((s) => s.fromId === an && s.toId === binh).id;
+
+  const forbidden = await api(`/api/settlements/${id}/date`, { method: 'PUT', body: { date: '2026-09-15' } });
+  assert.equal(forbidden.status, 401, 'người ngoài không được sửa');
+
+  const missingDate = await api(`/api/settlements/${id}/date`, { method: 'PUT', cookie, body: {} });
+  assert.equal(missingDate.status, 400);
+
+  const notFound = await api('/api/settlements/khong-ton-tai/date', {
+    method: 'PUT',
+    cookie,
+    body: { date: '2026-09-15' },
+  });
+  assert.equal(notFound.status, 404);
+
+  const updated = await api(`/api/settlements/${id}/date`, { method: 'PUT', cookie, body: { date: '2026-09-15' } });
+  assert.equal(updated.status, 200);
+  const entry = updated.data.settlements.find((s) => s.id === id);
+  assert.equal(entry.date, '2026-09-15');
+  assert.equal(entry.effectiveAt, null, 'sửa ngày phải xoá effective_at cũ (nếu có)');
+});
