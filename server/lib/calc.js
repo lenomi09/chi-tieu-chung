@@ -30,12 +30,15 @@ function increaseDebt(debt, i, j, amount) {
   debt[i][j] += amount;
 }
 
-// Áp 1 khoản thanh toán i->j: chỉ được làm giảm nợ i->j hiện có, tối thiểu 0 —
-// trả dư (hoặc trả khi không nợ) thì phần dư "mất tác dụng", không biến thành
-// nợ chiều ngược (khớp đúng ý nghĩa 1 lần thanh toán, không phải khoản chi).
-function applySettlement(debt, i, j, amount) {
-  const reduce = Math.min(debt[i][j], amount);
-  debt[i][j] -= reduce;
+// Áp 1 khoản thanh toán i<->j: coi như 2 người đã TẤT TOÁN nợ với nhau tại thời
+// điểm này — set thẳng nợ cả 2 chiều về 0, KHÔNG trừ theo đúng số tiền `amount`.
+// Lý do: thanh toán trong app này là hành động "xác nhận đã trả xong" (người
+// dùng duyệt 1 lần cho gọn), không phải trả góp nhiều lần theo từng đồng —
+// nên dù số tiền ghi có lệch (làm tròn, trả thiếu/dư ngoài đời thực) thì nợ
+// giữa 2 người vẫn phải về đúng 0, không được để sót/dư lại một phía.
+function applySettlement(debt, i, j) {
+  debt[i][j] = 0;
+  debt[j][i] = 0;
 }
 
 /**
@@ -43,11 +46,13 @@ function applySettlement(debt, i, j, amount) {
  * để 2 phần luôn khớp nhau tuyệt đối.
  *
  * Nguyên tắc: xử lý khoản chi & thanh toán THEO THỨ TỰ THỜI GIAN (không phải
- * cộng dồn tổng cả đời rồi mới trừ 1 lần ở cuối) — mỗi thanh toán chỉ xoá nợ
- * đã phát sinh TÍNH ĐẾN THỜI ĐIỂM ĐÓ. Nhờ vậy:
- * - Thanh toán xong, nợ về đúng 0 (không âm thầm để lại phần dư).
- * - Khoản chi phát sinh SAU đó được tính là nợ mới hoàn toàn, không bị một
- *   thanh toán cũ (đã dùng hết hoặc dư ra trước đó) âm thầm bù trừ tiếp.
+ * cộng dồn tổng cả đời rồi mới trừ 1 lần ở cuối). Mỗi thanh toán giữa 2 người
+ * là một mốc "tất toán" — nợ giữa 2 người đó set thẳng về 0 tại thời điểm ấy
+ * (không trừ dần theo số tiền). Nhờ vậy:
+ * - Duyệt thanh toán xong, nợ giữa 2 người về đúng 0 — không còn sót lại dù
+ *   số tiền ghi nhận có lệch với nợ thực tế (làm tròn, trả thiếu/dư).
+ * - Khoản chi phát sinh SAU thời điểm đó được tính là nợ mới hoàn toàn, không
+ *   bị một thanh toán cũ âm thầm bù trừ tiếp.
  * - Cùng ngày: khoản chi được tính trước thanh toán trong ngày đó (coi thanh
  *   toán như "chốt sổ cuối ngày").
  */
@@ -78,7 +83,7 @@ function computeDebtMatrix(members, expenses, settlements) {
   const debt = Array.from({ length: n }, () => new Array(n).fill(0));
   for (const ev of events) {
     if (ev.kind === 0) increaseDebt(debt, ev.i, ev.j, ev.amount);
-    else applySettlement(debt, ev.i, ev.j, ev.amount);
+    else applySettlement(debt, ev.i, ev.j);
   }
 
   return { ids, debt };

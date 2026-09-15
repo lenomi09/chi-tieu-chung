@@ -97,7 +97,7 @@ test('chia riêng cho vài người không ảnh hưởng người không đư�
   assert.equal(byId.huy.balance, 0);
 });
 
-test('thanh toán vượt quá số nợ thực tế: phần dư bị bỏ qua, KHÔNG tạo nợ ngược', () => {
+test('thanh toán vượt quá số nợ thực tế: nợ về đúng 0, KHÔNG tạo nợ ngược', () => {
   const settlements = [
     { id: 's1', date: '2026-09-05', fromId: 'huy', toId: 'lan', amount: 200000 },
   ];
@@ -105,12 +105,27 @@ test('thanh toán vượt quá số nợ thực tế: phần dư bị bỏ qua, 
   const summary = computeSummary(members, expenses, settlements);
   const byId = Object.fromEntries(summary.map((s) => [s.id, s]));
 
-  // Huy trả dư 150.000đ cho Lan (Huy chỉ nợ Lan 50.000): 50.000 nợ thật được xoá,
-  // 150.000 dư ra bị bỏ qua — Lan KHÔNG nợ ngược lại Huy phần dư đó.
+  // Huy trả dư 150.000đ cho Lan (Huy chỉ nợ Lan 50.000): duyệt thanh toán = tất
+  // toán, nợ 2 người về đúng 0 — Lan KHÔNG nợ ngược lại Huy phần dư đó.
   assert.equal(findDebt(debts, 'huy', 'lan'), undefined);
   assert.equal(findDebt(debts, 'lan', 'huy'), undefined);
   // Huy vẫn còn nợ Minh 50.000 (không liên quan) -> số dư Huy chỉ cải thiện đúng
   // bằng phần nợ Lan đã xoá (50.000), không phải toàn bộ 200.000 đã trả.
+  assert.equal(byId.huy.balance, -50000);
+  assert.equal(byId.lan.balance, 50000);
+});
+
+test('thanh toán một phần vẫn tất toán về 0 (duyệt = xác nhận đã trả xong, không trừ dần theo số tiền)', () => {
+  const settlements = [
+    // Huy nợ Lan 50.000 nhưng chỉ ghi nhận đã trả 10.000 (trả thiếu/làm tròn ngoài đời) — vẫn coi là đã xong.
+    { id: 's1', date: '2026-09-05', fromId: 'huy', toId: 'lan', amount: 10000 },
+  ];
+  const debts = computeDebts(members, expenses, settlements);
+  const summary = computeSummary(members, expenses, settlements);
+  const byId = Object.fromEntries(summary.map((s) => [s.id, s]));
+
+  assert.equal(findDebt(debts, 'huy', 'lan'), undefined);
+  assert.equal(findDebt(debts, 'lan', 'huy'), undefined);
   assert.equal(byId.huy.balance, -50000);
   assert.equal(byId.lan.balance, 50000);
 });
