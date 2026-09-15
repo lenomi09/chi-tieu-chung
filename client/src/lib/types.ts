@@ -38,6 +38,10 @@ export interface Settlement {
   toId: string
   amount: number
   status: RequestStatus
+  /** Số nợ thực tế ngay trước khi thanh toán này tất toán — null nếu chưa duyệt (chưa áp dụng). */
+  expectedAmount: number | null
+  /** true nếu amount khớp expectedAmount (trong sai số làm tròn), false nếu lệch, null nếu chưa duyệt. */
+  matches: boolean | null
 }
 
 export interface MemberSummary {

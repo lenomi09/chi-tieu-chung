@@ -226,6 +226,27 @@ function explainSettlement(members, expenses, settlements, settlementId) {
   return null;
 }
 
+/**
+ * Kiểm tra TỪNG thanh toán: số tiền ghi nhận (paidAmount) có khớp đúng số nợ
+ * thực tế NGAY TRƯỚC lúc nó tất toán (expectedAmount) không — dựa trên
+ * explainSettlement(). Lệch có thể do: trả thiếu/dư ngoài đời, tính nhầm khi
+ * quên trừ 1 khoản chi khác cùng lúc, hoặc chỉ là số dư nhỏ do làm tròn.
+ * Dung sai 1đ (làm tròn nhiều lần khi chia hết cho số lẻ người).
+ */
+function checkSettlements(members, expenses, settlements) {
+  const TOLERANCE = 1;
+  return settlements.map((s) => {
+    const ex = explainSettlement(members, expenses, settlements, s.id);
+    if (!ex) return { settlementId: s.id, expectedAmount: null, matches: null };
+    const expectedAmount = ex.debtBeforeAToB > 0 ? ex.debtBeforeAToB : ex.debtBeforeBToA;
+    return {
+      settlementId: s.id,
+      expectedAmount,
+      matches: Math.abs(expectedAmount - ex.paidAmount) <= TOLERANCE,
+    };
+  });
+}
+
 // File này được dùng chung cho cả server (require qua Node) và trình duyệt (nạp
 // thẳng qua thẻ <script>, xem route GET /calc.js ở server.js) — để 2 bên không
 // bao giờ lệch logic tính toán.
@@ -235,4 +256,10 @@ function explainSettlement(members, expenses, settlements, settlementId) {
   } else {
     root.calc = api;
   }
-})(typeof window !== 'undefined' ? window : this, { computeSummary, computeDebts, explainSettlement, round });
+})(typeof window !== 'undefined' ? window : this, {
+  computeSummary,
+  computeDebts,
+  explainSettlement,
+  checkSettlements,
+  round,
+});

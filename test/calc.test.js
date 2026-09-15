@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { computeSummary, computeDebts, explainSettlement } = require('../server/lib/calc');
+const { computeSummary, computeDebts, explainSettlement, checkSettlements } = require('../server/lib/calc');
 
 const members = [
   { id: 'lan', name: 'Lan' },
@@ -212,4 +212,30 @@ test('explainSettlement: liệt kê đúng các khoản chi giữa 2 người k�
 
   // Thanh toán không tồn tại -> null.
   assert.equal(explainSettlement(members, expenses, settlements, 'khong-ton-tai'), null);
+});
+
+test('checkSettlements: phát hiện đúng khoản trả thiếu/trả dư so với nợ thực tế', () => {
+  const settlementsMixed = [
+    // Đúng khớp: Huy nợ Lan 50.000, trả đủ 50.000.
+    { id: 's1', date: '2026-09-05', fromId: 'huy', toId: 'lan', amount: 50000 },
+  ];
+  const [check1] = checkSettlements(members, expenses, settlementsMixed);
+  assert.equal(check1.expectedAmount, 50000);
+  assert.equal(check1.matches, true);
+
+  const settlementsThieu = [
+    // Trả thiếu: nợ 50.000 nhưng chỉ ghi nhận 30.000.
+    { id: 's2', date: '2026-09-05', fromId: 'huy', toId: 'lan', amount: 30000 },
+  ];
+  const [check2] = checkSettlements(members, expenses, settlementsThieu);
+  assert.equal(check2.expectedAmount, 50000);
+  assert.equal(check2.matches, false);
+
+  const settlementsDu = [
+    // Trả dư: nợ 50.000 nhưng ghi nhận những 80.000.
+    { id: 's3', date: '2026-09-05', fromId: 'huy', toId: 'lan', amount: 80000 },
+  ];
+  const [check3] = checkSettlements(members, expenses, settlementsDu);
+  assert.equal(check3.expectedAmount, 50000);
+  assert.equal(check3.matches, false);
 });

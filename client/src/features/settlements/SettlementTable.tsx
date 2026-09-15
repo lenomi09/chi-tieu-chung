@@ -1,5 +1,6 @@
-import { Check, Trash2, X } from 'lucide-react'
+import { AlertTriangle, Check, Trash2, X } from 'lucide-react'
 import * as React from 'react'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -111,6 +112,8 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
   const confirm = useConfirm()
   const memberName = React.useMemo(() => new Map(members.map((m) => [m.id, m.name])), [members])
 
+  const mismatched = React.useMemo(() => settlements.filter((s) => s.matches === false), [settlements])
+
   const filtered = React.useMemo(
     () =>
       settlements.filter((s) => {
@@ -184,6 +187,19 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
 
   return (
     <div className="flex flex-col gap-3">
+      {mismatched.length > 0 && (
+        <Alert variant="warning">
+          <AlertTitle>
+            {mismatched.length} khoản thanh toán chưa khớp với số nợ thực tế lúc tất toán
+          </AlertTitle>
+          <AlertDescription>
+            Số tiền ghi nhận khác với số nợ ngay trước đó (trả thiếu/dư, hoặc tính nhầm do trùng khoản chi khác cùng
+            lúc). Bấm vào từng khoản có dấu <AlertTriangle className="inline size-3 align-text-top" /> bên dưới để
+            xem chi tiết.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
         <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-3">
           <Select value={fromFilter} onValueChange={setFromFilter}>
@@ -294,6 +310,12 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
                   <p className="break-words text-sm">
                     <span className="font-medium">{memberName.get(s.fromId) ?? '?'}</span> trả cho{' '}
                     <span className="font-medium">{memberName.get(s.toId) ?? '?'}</span>
+                    {s.matches === false && (
+                      <AlertTriangle
+                        className="ml-1.5 inline size-3.5 align-text-top text-warning"
+                        aria-label="Chưa khớp số nợ thực tế"
+                      />
+                    )}
                   </p>
                   <p className="text-xs text-muted-foreground">{formatDate(s.date)}</p>
                 </div>

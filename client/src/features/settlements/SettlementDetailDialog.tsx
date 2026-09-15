@@ -1,5 +1,6 @@
 import { Loader2 } from 'lucide-react'
 import * as React from 'react'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { api } from '@/lib/api'
@@ -63,6 +64,24 @@ function SettlementDetailDialog({ settlement, memberName, onOpenChange }: Settle
               <EmptyState title="Không tải được chi tiết" description="Thử mở lại sau." />
             ) : (
               <div className="flex flex-col gap-4 text-sm">
+                {(() => {
+                  const expected = explain.debtBeforeAToB > 0 ? explain.debtBeforeAToB : explain.debtBeforeBToA
+                  const diff = explain.paidAmount - expected
+                  const matches = Math.abs(diff) <= 1
+                  return matches ? (
+                    <Alert variant="success">
+                      <AlertTitle>Khớp đúng số nợ</AlertTitle>
+                    </Alert>
+                  ) : (
+                    <Alert variant="warning">
+                      <AlertTitle>{diff > 0 ? `Trả dư ${formatCurrency(diff)}` : `Trả thiếu ${formatCurrency(-diff)}`}</AlertTitle>
+                      <AlertDescription>
+                        So với nợ thực tế ({formatCurrency(expected)}) ngay trước khi tất toán.
+                      </AlertDescription>
+                    </Alert>
+                  )
+                })()}
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-xs text-muted-foreground">Nợ trước khi tất toán</p>
