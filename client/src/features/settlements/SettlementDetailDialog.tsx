@@ -54,20 +54,9 @@ function SettlementDetailDialog({ settlement, memberName, onOpenChange }: Settle
               <DialogDescription>{formatCurrency(settlement.amount)}</DialogDescription>
             </DialogHeader>
 
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-xs text-muted-foreground">Ngày duyệt thanh toán</p>
-                <p className="font-medium">{formatDate(settlement.date)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Tính nợ đến ngày</p>
-                <p className="font-medium">
-                  {formatDateOnly(settlement.effectiveAt || settlement.date)}
-                  {settlement.effectiveAt && formatDateOnly(settlement.effectiveAt) !== formatDate(settlement.date) && (
-                    <span className="ml-1 text-xs font-normal text-warning">(đã điều chỉnh)</span>
-                  )}
-                </p>
-              </div>
+            <div className="text-sm">
+              <p className="text-xs text-muted-foreground">Ngày duyệt thanh toán</p>
+              <p className="font-medium">{formatDate(settlement.date)}</p>
             </div>
 
             {loading ? (
@@ -96,6 +85,17 @@ function SettlementDetailDialog({ settlement, memberName, onOpenChange }: Settle
                   )
                 })()}
 
+                <div>
+                  <p className="text-xs text-muted-foreground">Khoảng thời gian tính nợ</p>
+                  <p className="font-medium">
+                    {explain.sinceDate ? formatDate(explain.sinceDate) : 'Lúc bắt đầu'} →{' '}
+                    {formatDateOnly(settlement.effectiveAt || settlement.date)}
+                    {settlement.effectiveAt && formatDateOnly(settlement.effectiveAt) !== formatDate(settlement.date) && (
+                      <span className="ml-1 text-xs font-normal text-warning">(đã điều chỉnh)</span>
+                    )}
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-xs text-muted-foreground">Nợ trước khi tất toán</p>
@@ -117,16 +117,6 @@ function SettlementDetailDialog({ settlement, memberName, onOpenChange }: Settle
                   <p className="text-xs text-muted-foreground">
                     Khoản chi được tất toán ({explain.items.length === 0 ? 'không có' : `${explain.items.length} khoản`}
                     )
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Tính nợ từ ngày{' '}
-                    <span className="font-medium text-foreground">
-                      {explain.sinceDate ? formatDate(explain.sinceDate) : 'lúc bắt đầu'}
-                    </span>{' '}
-                    đến ngày{' '}
-                    <span className="font-medium text-foreground">
-                      {formatDateOnly(settlement.effectiveAt || settlement.date)}
-                    </span>
                   </p>
                   {explain.items.length === 0 ? (
                     <p className="rounded-md border px-3 py-2 text-muted-foreground">
