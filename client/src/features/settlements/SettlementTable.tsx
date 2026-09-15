@@ -11,6 +11,7 @@ import { useAppState } from '@/context/AppStateContext'
 import { api } from '@/lib/api'
 import { formatCurrency, formatDate } from '@/lib/format'
 import type { Member, RequestStatus, Settlement } from '@/lib/types'
+import { SettlementDetailDialog } from './SettlementDetailDialog'
 
 const PAGE_SIZE = 10
 
@@ -105,6 +106,7 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
   const [page, setPage] = React.useState(1)
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
   const [bulkDeleting, setBulkDeleting] = React.useState(false)
+  const [detailSettlement, setDetailSettlement] = React.useState<Settlement | null>(null)
   const { refetch } = useAppState()
   const confirm = useConfirm()
   const memberName = React.useMemo(() => new Map(members.map((m) => [m.id, m.name])), [members])
@@ -264,13 +266,27 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
       ) : (
         <div className="flex flex-col gap-2">
           {pageItems.map((s) => (
-            <div key={s.id} className="flex items-start justify-between gap-2 rounded-lg border p-3">
+            <div
+              key={s.id}
+              className="flex cursor-pointer items-start justify-between gap-2 rounded-lg border p-3 outline-none hover:bg-accent/40 focus-visible:bg-accent/40"
+              role="button"
+              tabIndex={0}
+              onClick={() => setDetailSettlement(s)}
+              onKeyDown={(ev) => {
+                if (ev.target !== ev.currentTarget) return
+                if (ev.key === 'Enter' || ev.key === ' ') {
+                  ev.preventDefault()
+                  setDetailSettlement(s)
+                }
+              }}
+            >
               <div className="flex min-w-0 items-start gap-2">
                 {isAdmin && (
                   <Checkbox
                     className="mt-0.5"
                     checked={selectedIds.has(s.id)}
                     onCheckedChange={(v) => toggleSelected(s.id, v === true)}
+                    onClick={(ev) => ev.stopPropagation()}
                     aria-label={`Chọn thanh toán ${memberName.get(s.fromId) ?? '?'} trả ${memberName.get(s.toId) ?? '?'}`}
                   />
                 )}
@@ -282,7 +298,7 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
                   <p className="text-xs text-muted-foreground">{formatDate(s.date)}</p>
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-3">
+              <div className="flex shrink-0 items-center gap-3" onClick={(ev) => ev.stopPropagation()}>
                 <span className="font-medium">{formatCurrency(s.amount)}</span>
                 <Badge variant={statusVariant[s.status]}>{statusLabel[s.status]}</Badge>
                 <SettlementRowActions settlement={s} isAdmin={isAdmin} />
@@ -293,6 +309,11 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
       )}
 
       <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
+      <SettlementDetailDialog
+        settlement={detailSettlement}
+        memberName={memberName}
+        onOpenChange={(open) => !open && setDetailSettlement(null)}
+      />
     </div>
   )
 }

@@ -151,6 +151,78 @@ function computeDebts(members, expenses, settlements) {
   return debts;
 }
 
+/**
+ * Giải thích 1 thanh toán cụ thể: liệt kê các khoản chi GIỮA ĐÚNG 2 NGƯỜI đó
+ * đã được nó tất toán — tính từ lần thanh toán liền trước giữa 2 người này
+ * (hoặc từ đầu, nếu đây là lần đầu) cho tới chính thanh toán này. Chỉ cần xét
+ * event trực tiếp giữa 2 người (không qua trung gian), vì mỗi ô trong ma trận
+ * nợ chỉ bị ảnh hưởng bởi event của đúng cặp đó (xem computeDebtMatrix).
+ */
+function explainSettlement(members, expenses, settlements, settlementId) {
+  const target = settlements.find((s) => s.id === settlementId);
+  if (!target) return null;
+  const A = target.fromId;
+  const B = target.toId;
+
+  const events = [];
+  for (const e of expenses) {
+    for (const { memberId, amount } of resolveShares(e)) {
+      if (memberId === e.payerId) continue;
+      if (memberId === A && e.payerId === B) {
+        events.push({ date: e.date, kind: 0, ower: A, amount, expenseId: e.id, description: e.description });
+      } else if (memberId === B && e.payerId === A) {
+        events.push({ date: e.date, kind: 0, ower: B, amount, expenseId: e.id, description: e.description });
+      }
+    }
+  }
+  for (const s of settlements) {
+    const between = (s.fromId === A && s.toId === B) || (s.fromId === B && s.toId === A);
+    if (!between) continue;
+    events.push({ date: s.effectiveAt || s.date, kind: 1, id: s.id });
+  }
+  events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.kind - b.kind));
+
+  let debtAB = 0; // A nợ B
+  let debtBA = 0; // B nợ A
+  let items = [];
+
+  for (const ev of events) {
+    if (ev.kind === 0) {
+      if (ev.ower === A) {
+        const cancel = Math.min(debtBA, ev.amount);
+        debtBA -= cancel;
+        debtAB += ev.amount - cancel;
+      } else {
+        const cancel = Math.min(debtAB, ev.amount);
+        debtAB -= cancel;
+        debtBA += ev.amount - cancel;
+      }
+      items.push({
+        expenseId: ev.expenseId,
+        description: ev.description,
+        date: ev.date,
+        ower: ev.ower,
+        amount: round(ev.amount),
+      });
+    } else if (ev.id === settlementId) {
+      return {
+        fromId: A,
+        toId: B,
+        items,
+        debtBeforeAToB: round(debtAB),
+        debtBeforeBToA: round(debtBA),
+        paidAmount: round(target.amount),
+        settlementDate: target.date,
+      };
+    } else {
+      debtAB = 0;
+      debtBA = 0;
+      items = [];
+    }
+  }
+  return null;
+}
+
 // File này được dùng chung cho cả server (require qua Node) và trình duyệt (nạp
 // thẳng qua thẻ <script>, xem route GET /calc.js ở server.js) — để 2 bên không
 // bao giờ lệch logic tính toán.
@@ -160,4 +232,4 @@ function computeDebts(members, expenses, settlements) {
   } else {
     root.calc = api;
   }
-})(typeof window !== 'undefined' ? window : this, { computeSummary, computeDebts, round });
+})(typeof window !== 'undefined' ? window : this, { computeSummary, computeDebts, explainSettlement, round });

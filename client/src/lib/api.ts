@@ -1,4 +1,4 @@
-import type { AppState, ExpensePayload, SettlementPayload } from './types'
+import type { AppState, ExpensePayload, SettlementExplain, SettlementPayload } from './types'
 
 export class ApiError extends Error {}
 
@@ -66,6 +66,7 @@ export const api = {
   rejectSettlementRequest: (id: string) =>
     request<AppState>(`/api/settlement-requests/${id}/reject`, { method: 'POST' }),
   deleteSettlement: (id: string) => request<AppState>(`/api/settlements/${id}`, { method: 'DELETE' }),
+  explainSettlement: (id: string) => request<SettlementExplain>(`/api/settlements/${id}/explain`),
 
   reset: () => request<AppState>('/api/reset', { method: 'POST' }),
 }

@@ -80,3 +80,23 @@ export interface SettlementPayload {
   toId: string
   amount: number
 }
+
+export interface SettlementExplainItem {
+  expenseId: string
+  description: string
+  date: string
+  /** id người nợ trong khoản chi này (1 trong 2 người của thanh toán) */
+  ower: string
+  amount: number
+}
+
+export interface SettlementExplain {
+  fromId: string
+  toId: string
+  items: SettlementExplainItem[]
+  /** Nợ còn lại (fromId nợ toId / toId nợ fromId) ngay trước khi thanh toán này tất toán về 0 */
+  debtBeforeAToB: number
+  debtBeforeBToA: number
+  paidAmount: number
+  settlementDate: string
+}

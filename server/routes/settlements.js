@@ -5,12 +5,27 @@
 
 const express = require('express');
 const db = require('../lib/db');
+const calc = require('../lib/calc');
 const requireAdmin = require('../middleware/requireAdmin');
 const asyncRoute = require('../middleware/asyncRoute');
 const { buildState } = require('../services/stateService');
 const { validateSettlementInput } = require('../services/settlementService');
 
 const router = express.Router();
+
+// ---- Giải thích 1 thanh toán: khoản chi nào đã được nó tất toán ----
+
+router.get(
+  '/settlements/:id/explain',
+  asyncRoute(async (req, res) => {
+    const { members, expenses, settlements } = await db.getState();
+    const approvedExpenses = expenses.filter((e) => e.status === 'approved');
+    const approvedSettlements = settlements.filter((s) => s.status === 'approved');
+    const result = calc.explainSettlement(members, approvedExpenses, approvedSettlements, req.params.id);
+    if (!result) return res.status(404).json({ error: 'Không tìm thấy thanh toán (hoặc chưa được duyệt)' });
+    res.json(result);
+  })
+);
 
 // ---- Thanh toán (admin ghi nhận trực tiếp -> approved ngay) ----
 
