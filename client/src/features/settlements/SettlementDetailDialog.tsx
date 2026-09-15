@@ -88,8 +88,12 @@ function SettlementDetailDialog({ settlement, memberName, onOpenChange }: Settle
                 <div>
                   <p className="text-xs text-muted-foreground">Khoảng thời gian tính nợ</p>
                   <p className="font-medium">
-                    {explain.sinceDate ? formatDate(explain.sinceDate) : 'Lúc bắt đầu'} →{' '}
-                    {formatDateOnly(settlement.effectiveAt || settlement.date)}
+                    {explain.sinceDate
+                      ? formatDate(explain.sinceDate)
+                      : explain.items.length > 0
+                        ? formatDateOnly(explain.items[0].date)
+                        : formatDateOnly(settlement.effectiveAt || settlement.date)}{' '}
+                    → {formatDateOnly(settlement.effectiveAt || settlement.date)}
                     {settlement.effectiveAt && formatDateOnly(settlement.effectiveAt) !== formatDate(settlement.date) && (
                       <span className="ml-1 text-xs font-normal text-warning">(đã điều chỉnh)</span>
                     )}
