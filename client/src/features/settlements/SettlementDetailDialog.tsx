@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { EmptyState } from '@/components/ui/empty-state'
 import { useAppState } from '@/context/AppStateContext'
 import { api } from '@/lib/api'
-import { formatCurrency, formatDate, formatDateOnly } from '@/lib/format'
+import { formatCurrency, formatDate } from '@/lib/format'
 import type { Settlement, SettlementExplain } from '@/lib/types'
 
 interface SettlementDetailDialogProps {
@@ -16,15 +16,21 @@ interface SettlementDetailDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
+// Mặc định chỉ hiện chừng này khoản, bấm "Xem thêm" mới mở hết — tránh modal
+// dài lê thê ngay từ đầu khi 1 lần trả nợ gồm rất nhiều khoản chi nhỏ lẻ.
+const PREVIEW_COUNT = 8
+
 function SettlementDetailDialog({ settlement, memberName, isAdmin, onOpenChange }: SettlementDetailDialogProps) {
   const { mutate } = useAppState()
   const [explain, setExplain] = React.useState<SettlementExplain | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [fixing, setFixing] = React.useState(false)
+  const [expanded, setExpanded] = React.useState(false)
   const settlementId = settlement?.id
 
   React.useEffect(() => {
     setExplain(null)
+    setExpanded(false)
     if (!settlementId) return
     let cancelled = false
     setLoading(true)
@@ -108,45 +114,41 @@ function SettlementDetailDialog({ settlement, memberName, isAdmin, onOpenChange 
                   )
                 })()}
 
-                <div className="flex flex-col gap-1.5">
-                  <p className="text-xs text-muted-foreground">
-                    Tính nợ từ{' '}
-                    {explain.sinceDate
-                      ? formatDate(explain.sinceDate)
-                      : explain.items.length > 0
-                        ? formatDateOnly(explain.items[0].date)
-                        : formatDateOnly(settlement.effectiveAt || settlement.date)}{' '}
-                    đến {formatDateOnly(settlement.effectiveAt || settlement.date)}
-                    {settlement.effectiveAt && formatDateOnly(settlement.effectiveAt) !== formatDate(settlement.date) && (
-                      <span className="text-warning"> (đã điều chỉnh)</span>
-                    )}{' '}
-                    · {explain.items.length === 0 ? 'không có khoản chi nào' : `${explain.items.length} khoản chi`}
+                {explain.items.length === 0 ? (
+                  <p className="rounded-md border px-3 py-2 text-muted-foreground">
+                    Số tiền trả lần này không ứng với khoản chi nào cả.
                   </p>
-                  {explain.items.length === 0 ? (
-                    <p className="rounded-md border px-3 py-2 text-muted-foreground">
-                      Số tiền trả lần này không ứng với khoản chi nào cả.
-                    </p>
-                  ) : (
-                    <div className="flex flex-col divide-y rounded-md border">
-                      {/* Hiện khoản mới nhất lên đầu — explain.items gốc vẫn
-                          giữ thứ tự tăng dần (dùng ở items[0] phía trên để suy
-                          ra ngày bắt đầu khi chưa có sinceDate). */}
-                      {[...explain.items]
-                        .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
-                        .map((item) => (
-                        <div key={item.expenseId} className="flex items-center justify-between gap-2 px-3 py-1.5">
-                          <div className="min-w-0">
-                            <p className="truncate">{item.description}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatDate(item.date)} · {memberName.get(item.ower) ?? '?'} chịu phần này
-                            </p>
-                          </div>
-                          <span className="shrink-0 font-medium">{formatCurrency(item.amount)}</span>
+                ) : (
+                  (() => {
+                    // Hiện khoản mới nhất lên đầu — explain.items gốc vẫn giữ
+                    // thứ tự tăng dần cần thiết cho logic tất toán bên trong.
+                    const sortedItems = [...explain.items].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+                    const visibleItems = expanded ? sortedItems : sortedItems.slice(0, PREVIEW_COUNT)
+                    const remaining = sortedItems.length - visibleItems.length
+                    return (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex max-h-[50vh] flex-col divide-y overflow-y-auto overscroll-contain rounded-md border text-sm">
+                          {visibleItems.map((item) => (
+                            <div key={item.expenseId} className="flex items-center justify-between gap-2 px-3 py-1.5">
+                              <div className="min-w-0">
+                                <p className="truncate">{item.description}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatDate(item.date)} · {memberName.get(item.ower) ?? '?'} chịu phần này
+                                </p>
+                              </div>
+                              <span className="shrink-0 font-medium">{formatCurrency(item.amount)}</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                        {remaining > 0 && (
+                          <Button type="button" variant="ghost" size="sm" onClick={() => setExpanded(true)}>
+                            Xem thêm {remaining} khoản
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  })()
+                )}
               </div>
             )}
           </>

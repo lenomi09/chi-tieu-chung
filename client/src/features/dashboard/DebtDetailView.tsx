@@ -119,7 +119,7 @@ function DebtDetailView({ debt, memberName, onBack }: DebtDetailViewProps) {
               {/* Tiêu đề "X nợ Y" ở trên luôn đứng yên (nằm ngoài khung này) —
                   chỉ riêng danh sách khoản chi tự cuộn trong chiều cao giới
                   hạn khi mở hết, không kéo cả tiêu đề trôi mất theo. */}
-              <div className="flex max-h-[50vh] flex-col divide-y overflow-y-auto rounded-md border text-sm">
+              <div className="flex max-h-[50vh] flex-col divide-y overflow-y-auto overscroll-contain rounded-md border text-sm">
                 {visibleItems.map((item) => (
                   <div key={item.expenseId} className="flex items-center justify-between gap-2 px-3 py-1.5">
                     <div className="min-w-0">
