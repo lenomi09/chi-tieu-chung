@@ -301,3 +301,103 @@ test('explainDebt/explainSettlement: items[].date luôn là ngày sạch (không
   assert.ok(item);
   assert.equal(item.date, '2026-09-01'); // dung date goc, khong phai effectiveAt
 });
+
+test('cùng ngày với thanh toán: khoản chi duyệt SAU (approvedAt muộn hơn) phải tính thành nợ mới, không bị tất toán cuốn mất', () => {
+  // Trước khi có approved_at, cùng 1 ngày luôn coi khoản chi có trước thanh
+  // toán — nên 1 khoản chi thêm SAU KHI đã duyệt thanh toán (nhưng cùng ngày)
+  // sẽ bị "nuốt" mất, không hiện thành nợ mới (đúng bug người dùng gặp thực
+  // tế). Có approvedAt rồi thì phải tính đúng theo thứ tự thực đã xảy ra.
+  const settlement = {
+    id: 's1',
+    date: '2026-09-16',
+    fromId: 'huy',
+    toId: 'lan',
+    amount: 20000,
+    approvedAt: '2026-09-16T08:00:00.000Z',
+  };
+  const laterExpense = {
+    id: 'e-later',
+    date: '2026-09-16',
+    description: 'Thêm sau khi đã duyệt',
+    amount: 30000,
+    payerId: 'lan',
+    shareMemberIds: ['huy'],
+    approvedAt: '2026-09-16T09:00:00.000Z',
+  };
+  const debts = computeDebts(members, [laterExpense], [settlement]);
+  assert.equal(findDebt(debts, 'huy', 'lan').amount, 30000);
+});
+
+test('cùng ngày với thanh toán: khoản chi duyệt TRƯỚC (approvedAt sớm hơn) vẫn bị tất toán cuốn theo như cũ', () => {
+  const settlement = {
+    id: 's1',
+    date: '2026-09-16',
+    fromId: 'huy',
+    toId: 'lan',
+    amount: 20000,
+    approvedAt: '2026-09-16T09:00:00.000Z',
+  };
+  const earlierExpense = {
+    id: 'e-earlier',
+    date: '2026-09-16',
+    description: 'Thêm trước khi duyệt',
+    amount: 30000,
+    payerId: 'lan',
+    shareMemberIds: ['huy'],
+    approvedAt: '2026-09-16T08:00:00.000Z',
+  };
+  const debts = computeDebts(members, [earlierExpense], [settlement]);
+  assert.equal(findDebt(debts, 'huy', 'lan'), undefined);
+});
+
+test('dữ liệu cũ thiếu approvedAt: lùi về đúng quy tắc cũ (khoản chi luôn tính trước thanh toán cùng ngày)', () => {
+  const settlement = { id: 's1', date: '2026-09-16', fromId: 'huy', toId: 'lan', amount: 20000 };
+  const sameDayExpense = {
+    id: 'e-legacy',
+    date: '2026-09-16',
+    description: 'Không có approvedAt',
+    amount: 30000,
+    payerId: 'lan',
+    shareMemberIds: ['huy'],
+  };
+  const debts = computeDebts(members, [sameDayExpense], [settlement]);
+  assert.equal(findDebt(debts, 'huy', 'lan'), undefined);
+});
+
+test('trộn lẫn dữ liệu cũ (thiếu approvedAt) với dữ liệu mới (có approvedAt) cùng ngày: thứ tự vẫn nhất quán, không tự mâu thuẫn', () => {
+  // Mô phỏng đúng tình huống thực tế: 1 thanh toán CŨ (duyệt trước khi có cột
+  // approved_at) cùng ngày với 1 CẶP thanh toán+khoản chi MỚI (có approvedAt
+  // đầy đủ). Thanh toán cũ luôn bị coi là "chốt sổ cuối ngày" (mốc ảo 9999)
+  // nên vẫn tất toán về 0 — không phải bug, chỉ để đảm bảo việc so sánh giữa
+  // các khoản có/không có approvedAt không bị lộn xộn (mất tính bắc cầu).
+  const legacyExpense = {
+    id: 'e-legacy',
+    date: '2026-09-16',
+    description: 'Khoản chi cũ',
+    amount: 5000,
+    payerId: 'lan',
+    shareMemberIds: ['huy'],
+  };
+  const legacySettlement = { id: 's-legacy', date: '2026-09-16', fromId: 'huy', toId: 'lan', amount: 5000 };
+  const freshSettlement = {
+    id: 's-fresh',
+    date: '2026-09-16',
+    fromId: 'huy',
+    toId: 'lan',
+    amount: 20000,
+    approvedAt: '2026-09-16T08:00:00.000Z',
+  };
+  const freshExpense = {
+    id: 'e-fresh',
+    date: '2026-09-16',
+    description: 'Khoản chi mới, thêm sau khi duyệt',
+    amount: 30000,
+    payerId: 'lan',
+    shareMemberIds: ['huy'],
+    approvedAt: '2026-09-16T09:00:00.000Z',
+  };
+  const debts = computeDebts(members, [legacyExpense, freshExpense], [legacySettlement, freshSettlement]);
+  // Thanh toán cũ (không có approvedAt) luôn đứng cuối ngày -> tất toán sạch,
+  // kể cả khoản chi mới thêm sau đó trong cùng ngày.
+  assert.equal(findDebt(debts, 'huy', 'lan'), undefined);
+});

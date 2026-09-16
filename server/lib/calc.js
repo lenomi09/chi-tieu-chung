@@ -53,9 +53,29 @@ function applySettlement(debt, i, j) {
  *   số tiền ghi nhận có lệch với nợ thực tế (làm tròn, trả thiếu/dư).
  * - Khoản chi phát sinh SAU thời điểm đó được tính là nợ mới hoàn toàn, không
  *   bị một thanh toán cũ âm thầm bù trừ tiếp.
- * - Cùng ngày: khoản chi được tính trước thanh toán trong ngày đó (coi thanh
+ * - Cùng ngày: ưu tiên so theo đúng mốc giờ:phút:giây lúc từng khoản được
+ *   DUYỆT (approvedAt) để ra đúng thứ tự thực tế đã xảy ra. Chỉ khi 1 trong 2
+ *   khoản thiếu mốc này (dữ liệu cũ trước khi có cột approved_at) mới lùi về
+ *   quy tắc cũ: khoản chi luôn tính trước thanh toán trong ngày đó (coi thanh
  *   toán như "chốt sổ cuối ngày").
  */
+// Chỉ được gọi khi a.date === b.date (trùng khớp tuyệt đối chuỗi dùng để sắp
+// xếp) nên không cần quan tâm approvedAt thuộc ngày nào — dùng 2 mốc "ảo" ở 2
+// đầu cực (luôn nhỏ/lớn hơn MỌI ISO string thật) cho khoản thiếu approvedAt,
+// để việc so sánh luôn bắc cầu (transitive) dù trộn lẫn dữ liệu cũ (không có
+// approvedAt) với dữ liệu mới (có approvedAt) trong cùng 1 ngày — nếu chỉ so
+// "khi cả 2 cùng có" rồi lùi kind riêng lẻ cho từng cặp thiếu, kết quả sort
+// tổng thể có thể không nhất quán (a<b, b<c nhưng c<a).
+const NO_APPROVED_AT_EXPENSE = '0000-00-00T00:00:00.000Z'; // trước MỌI mốc thật — giữ đúng quy tắc cũ: khoản chi luôn trước
+const NO_APPROVED_AT_SETTLEMENT = '9999-99-99T99:99:99.999Z'; // sau MỌI mốc thật — giữ đúng quy tắc cũ: thanh toán "chốt sổ cuối ngày"
+
+function eventTieBreak(a, b) {
+  const ta = a.approvedAt || (a.kind === 0 ? NO_APPROVED_AT_EXPENSE : NO_APPROVED_AT_SETTLEMENT);
+  const tb = b.approvedAt || (b.kind === 0 ? NO_APPROVED_AT_EXPENSE : NO_APPROVED_AT_SETTLEMENT);
+  if (ta !== tb) return ta < tb ? -1 : 1;
+  return a.kind - b.kind;
+}
+
 function computeDebtMatrix(members, expenses, settlements) {
   const ids = members.map((m) => m.id);
   const idx = new Map(ids.map((id, i) => [id, i]));
@@ -70,7 +90,17 @@ function computeDebtMatrix(members, expenses, settlements) {
       if (iOwer === undefined || iOwer === jPayer) continue;
       // effectiveAt (nếu có) ghi đè `date` chỉ để SẮP XẾP — dùng khi khoản chi
       // này cần tính trước/sau 1 khoản khác cùng ngày cho đúng thứ tự thực tế.
-      events.push({ date: e.effectiveAt || e.date, kind: 0, i: iOwer, j: jPayer, amount });
+      // Đã có override thủ công thì bỏ qua approvedAt (mốc thật có thể thuộc
+      // hẳn 1 ngày khác với ngày effectiveAt cố tình gán) — admin đã tự quyết
+      // định thứ tự rồi, không để approvedAt ghi đè ngược lại quyết định đó.
+      events.push({
+        date: e.effectiveAt || e.date,
+        kind: 0,
+        approvedAt: e.effectiveAt ? null : e.approvedAt,
+        i: iOwer,
+        j: jPayer,
+        amount,
+      });
     }
   }
   for (const s of settlements) {
@@ -80,10 +110,18 @@ function computeDebtMatrix(members, expenses, settlements) {
     // effectiveAt (nếu có) ghi đè `date` chỉ để SẮP XẾP — dùng khi thanh toán
     // được duyệt trong app trễ hơn ngày nó thực sự xảy ra, để không bị coi là
     // tất toán luôn cả những khoản chi mới phát sinh sau đó nhưng trước ngày duyệt.
-    events.push({ date: s.effectiveAt || s.date, kind: 1, i, j, amount: s.amount });
+    events.push({
+      date: s.effectiveAt || s.date,
+      kind: 1,
+      approvedAt: s.effectiveAt ? null : s.approvedAt,
+      i,
+      j,
+      amount: s.amount,
+    });
   }
-  // sort() ổn định (stable) nên cùng ngày + cùng loại vẫn giữ nguyên thứ tự gốc.
-  events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.kind - b.kind));
+  // sort() ổn định (stable) nên cùng ngày + cùng loại + cùng thiếu approvedAt
+  // vẫn giữ nguyên thứ tự gốc.
+  events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : eventTieBreak(a, b)));
 
   const debt = Array.from({ length: n }, () => new Array(n).fill(0));
   for (const ev of events) {
@@ -178,19 +216,22 @@ function buildPairEvents(expenses, settlements, A, B) {
       // displayDate luôn là `date` gốc (không kèm giờ) — effectiveAt (nếu có)
       // chỉ dùng để SẮP XẾP, không phải để hiển thị (tránh in ra chuỗi kèm
       // giờ kiểu "2026-09-15T23:59:59" ở danh sách khoản chi cho người dùng).
+      // Đã có effectiveAt override thì bỏ qua approvedAt (xem lý do ở
+      // computeDebtMatrix) — giữ đúng quyết định thứ tự thủ công của admin.
+      const approvedAt = e.effectiveAt ? null : e.approvedAt;
       if (memberId === A && e.payerId === B) {
-        events.push({ date: eventDate, displayDate: e.date, kind: 0, ower: A, amount, expenseId: e.id, description: e.description });
+        events.push({ date: eventDate, displayDate: e.date, kind: 0, approvedAt, ower: A, amount, expenseId: e.id, description: e.description });
       } else if (memberId === B && e.payerId === A) {
-        events.push({ date: eventDate, displayDate: e.date, kind: 0, ower: B, amount, expenseId: e.id, description: e.description });
+        events.push({ date: eventDate, displayDate: e.date, kind: 0, approvedAt, ower: B, amount, expenseId: e.id, description: e.description });
       }
     }
   }
   for (const s of settlements) {
     const between = (s.fromId === A && s.toId === B) || (s.fromId === B && s.toId === A);
     if (!between) continue;
-    events.push({ date: s.effectiveAt || s.date, kind: 1, id: s.id, displayDate: s.date });
+    events.push({ date: s.effectiveAt || s.date, kind: 1, approvedAt: s.effectiveAt ? null : s.approvedAt, id: s.id, displayDate: s.date });
   }
-  events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.kind - b.kind));
+  events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : eventTieBreak(a, b)));
   return events;
 }
 

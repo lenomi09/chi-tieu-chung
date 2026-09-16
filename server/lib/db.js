@@ -85,6 +85,17 @@ async function doInit() {
   if (!(await columnExists('expenses', 'effective_at'))) {
     await client.execute('ALTER TABLE expenses ADD COLUMN effective_at TEXT');
   }
+  // Mốc giờ:phút:giây THỰC LÚC ĐƯỢC DUYỆT (status chuyển sang 'approved') —
+  // dùng làm tiêu chí phân định thứ tự khi 2 khoản (chi/thanh toán) trùng
+  // đúng 1 ngày, thay vì phải đoán "khoản chi luôn tính trước thanh toán
+  // trong ngày" như trước (xem tiebreak ở calc.js). Dữ liệu cũ trước khi có
+  // cột này sẽ NULL — calc.js tự lùi về quy tắc cũ khi thiếu mốc này.
+  if (!(await columnExists('expenses', 'approved_at'))) {
+    await client.execute('ALTER TABLE expenses ADD COLUMN approved_at TEXT');
+  }
+  if (!(await columnExists('settlements', 'approved_at'))) {
+    await client.execute('ALTER TABLE settlements ADD COLUMN approved_at TEXT');
+  }
 }
 
 function init() {
@@ -146,7 +157,7 @@ async function getExpenses() {
   // qua getExpenseReceipt() khi người dùng thực sự bấm xem.
   const [expRs, shareRs] = await Promise.all([
     client.execute(
-      "SELECT id, date, description, amount, payer_id, status, (receipt IS NOT NULL) AS has_receipt, split_items, effective_at FROM expenses ORDER BY date DESC, rowid DESC"
+      "SELECT id, date, description, amount, payer_id, status, (receipt IS NOT NULL) AS has_receipt, split_items, effective_at, approved_at FROM expenses ORDER BY date DESC, rowid DESC"
     ),
     client.execute('SELECT expense_id, member_id, amount FROM expense_shares'),
   ]);
@@ -175,6 +186,7 @@ async function getExpenses() {
     shareAmounts: shareAmountsByExpense.get(r.id) || null,
     splitItems: parseSplitItems(r.split_items),
     effectiveAt: r.effective_at,
+    approvedAt: r.approved_at,
   }));
 }
 
@@ -214,10 +226,21 @@ async function addExpense({
 }) {
   await init();
   const id = newId();
+  const approvedAt = status === 'approved' ? new Date().toISOString() : null;
   const statements = [
     {
-      sql: 'INSERT INTO expenses (id, date, description, amount, payer_id, status, receipt, split_items) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      args: [id, date, description, amount, payerId, status, receipt, splitItems ? JSON.stringify(splitItems) : null],
+      sql: 'INSERT INTO expenses (id, date, description, amount, payer_id, status, receipt, split_items, approved_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      args: [
+        id,
+        date,
+        description,
+        amount,
+        payerId,
+        status,
+        receipt,
+        splitItems ? JSON.stringify(splitItems) : null,
+        approvedAt,
+      ],
     },
     ...shareMemberIds.map((mid) => ({
       sql: 'INSERT INTO expense_shares (expense_id, member_id, amount) VALUES (?, ?, ?)',
@@ -230,7 +253,14 @@ async function addExpense({
 
 async function setExpenseStatus(id, status) {
   await init();
-  const rs = await client.execute({ sql: 'UPDATE expenses SET status = ? WHERE id = ?', args: [status, id] });
+  // Ghi lại đúng thời điểm THỰC được duyệt (chỉ khi chuyển sang 'approved')
+  // — dùng để phân định thứ tự khi trùng ngày với khoản khác (xem calc.js).
+  const sql =
+    status === 'approved'
+      ? 'UPDATE expenses SET status = ?, approved_at = ? WHERE id = ?'
+      : 'UPDATE expenses SET status = ? WHERE id = ?';
+  const args = status === 'approved' ? [status, new Date().toISOString(), id] : [status, id];
+  const rs = await client.execute({ sql, args });
   return rs.rowsAffected > 0;
 }
 
@@ -286,7 +316,7 @@ async function deleteExpense(id) {
 async function getSettlements() {
   await init();
   const rs = await client.execute(
-    'SELECT id, date, from_id, to_id, amount, status, effective_at FROM settlements ORDER BY date DESC, rowid DESC'
+    'SELECT id, date, from_id, to_id, amount, status, effective_at, approved_at FROM settlements ORDER BY date DESC, rowid DESC'
   );
   return rs.rows.map((r) => ({
     id: r.id,
@@ -296,22 +326,31 @@ async function getSettlements() {
     amount: r.amount,
     status: r.status,
     effectiveAt: r.effective_at,
+    approvedAt: r.approved_at,
   }));
 }
 
 async function addSettlement({ date, fromId, toId, amount, status = 'approved' }) {
   await init();
   const id = newId();
+  const approvedAt = status === 'approved' ? new Date().toISOString() : null;
   await client.execute({
-    sql: 'INSERT INTO settlements (id, date, from_id, to_id, amount, status) VALUES (?, ?, ?, ?, ?, ?)',
-    args: [id, date, fromId, toId, amount, status],
+    sql: 'INSERT INTO settlements (id, date, from_id, to_id, amount, status, approved_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    args: [id, date, fromId, toId, amount, status, approvedAt],
   });
   return id;
 }
 
 async function setSettlementStatus(id, status) {
   await init();
-  const rs = await client.execute({ sql: 'UPDATE settlements SET status = ? WHERE id = ?', args: [status, id] });
+  // Ghi lại đúng thời điểm THỰC được duyệt (chỉ khi chuyển sang 'approved')
+  // — dùng để phân định thứ tự khi trùng ngày với khoản khác (xem calc.js).
+  const sql =
+    status === 'approved'
+      ? 'UPDATE settlements SET status = ?, approved_at = ? WHERE id = ?'
+      : 'UPDATE settlements SET status = ? WHERE id = ?';
+  const args = status === 'approved' ? [status, new Date().toISOString(), id] : [status, id];
+  const rs = await client.execute({ sql, args });
   return rs.rowsAffected > 0;
 }
 
