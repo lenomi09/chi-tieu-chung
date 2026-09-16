@@ -3,7 +3,7 @@ import * as React from 'react'
 import { DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { api } from '@/lib/api'
-import { formatCurrency, formatDate, todayIso } from '@/lib/format'
+import { formatCurrency, formatDate } from '@/lib/format'
 import type { Debt, DebtExplain } from '@/lib/types'
 
 interface DebtDetailViewProps {
@@ -57,32 +57,18 @@ function DebtDetailView({ debt, memberName }: DebtDetailViewProps) {
       ) : !explain ? (
         <EmptyState title="Không tải được chi tiết" description="Thử mở lại sau." />
       ) : (
-        <div className="flex flex-col gap-1.5 text-sm">
-          <p className="text-xs text-muted-foreground">
-            Tính từ ngày{' '}
-            {explain.sinceDate
-              ? formatDate(explain.sinceDate)
-              : explain.items.length > 0
-                ? formatDate(explain.items[0].date)
-                : formatDate(todayIso())}{' '}
-            đến hôm nay ({formatDate(todayIso())}) ·{' '}
-            {explain.items.length === 0 ? 'không có khoản chi nào' : `${explain.items.length} khoản chi`}
-          </p>
-          {explain.items.length === 0 ? null : (
-            <div className="flex flex-col divide-y rounded-md border">
-              {explain.items.map((item) => (
-                <div key={item.expenseId} className="flex items-center justify-between gap-2 px-3 py-1.5">
-                  <div className="min-w-0">
-                    <p className="truncate">{item.description}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(item.date)} · {memberName.get(item.ower) ?? '?'} chịu phần này
-                    </p>
-                  </div>
-                  <span className="shrink-0 font-medium">{formatCurrency(item.amount)}</span>
-                </div>
-              ))}
+        <div className="flex flex-col divide-y rounded-md border text-sm">
+          {explain.items.map((item) => (
+            <div key={item.expenseId} className="flex items-center justify-between gap-2 px-3 py-1.5">
+              <div className="min-w-0">
+                <p className="truncate">{item.description}</p>
+                <p className="text-xs text-muted-foreground">
+                  {formatDate(item.date)} · {memberName.get(item.ower) ?? '?'} chịu phần này
+                </p>
+              </div>
+              <span className="shrink-0 font-medium">{formatCurrency(item.amount)}</span>
             </div>
-          )}
+          ))}
         </div>
       )}
     </>
