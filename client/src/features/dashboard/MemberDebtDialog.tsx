@@ -56,7 +56,7 @@ function MemberDebtDialog({ member, debts, members, settlements, isAdmin, onOpen
                 <ArrowLeft className="size-4" />
               </Button>
               <div className="flex min-w-0 flex-1 flex-col gap-3">
-                <DebtDetailView debt={detailDebt} memberName={memberName} />
+                <DebtDetailView debt={detailDebt} memberName={memberName} onBack={() => setDetailDebt(null)} />
               </div>
             </div>
           ) : (
