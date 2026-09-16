@@ -359,59 +359,123 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
       {pageItems.length === 0 ? (
         <EmptyState title="Chưa có thanh toán nào" description="Ghi nhận thanh toán đầu tiên ở bên dưới." />
       ) : (
-        <div className="flex flex-col gap-2">
-          {pageItems.map((s) => (
-            <div
-              key={s.id}
-              className="flex cursor-pointer items-start justify-between gap-2 rounded-lg border p-3 outline-none hover:bg-accent/40 focus-visible:bg-accent/40"
-              role="button"
-              tabIndex={0}
-              onClick={() => setDetailSettlement(s)}
-              onKeyDown={(ev) => {
-                if (ev.target !== ev.currentTarget) return
-                if (ev.key === 'Enter' || ev.key === ' ') {
-                  ev.preventDefault()
-                  setDetailSettlement(s)
-                }
-              }}
-            >
-              <div className="flex min-w-0 items-start gap-2">
-                {isAdmin && (
-                  <Checkbox
-                    className="mt-0.5"
-                    checked={selectedIds.has(s.id)}
-                    onCheckedChange={(v) => toggleSelected(s.id, v === true)}
-                    onClick={(ev) => ev.stopPropagation()}
-                    aria-label={`Chọn thanh toán ${memberName.get(s.fromId) ?? '?'} trả ${memberName.get(s.toId) ?? '?'}`}
-                  />
-                )}
-                <div className="min-w-0">
-                  <p className="break-words text-sm">
-                    <span className="font-medium">{memberName.get(s.fromId) ?? '?'}</span> trả cho{' '}
-                    <span className="font-medium">{memberName.get(s.toId) ?? '?'}</span>
-                    {s.matches === false && (
-                      <AlertTriangle
-                        className="ml-1.5 inline size-3.5 align-text-top text-warning"
-                        aria-label="Chưa khớp số nợ thực tế"
-                      />
-                    )}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Ngày duyệt: {formatDate(s.date)}</p>
-                  {s.effectiveAt && formatDateOnly(s.effectiveAt) !== formatDate(s.date) && (
-                    <p className="text-xs text-muted-foreground">
-                      Tính nợ đến: <span className="font-medium">{formatDateOnly(s.effectiveAt)}</span>
-                    </p>
+        <>
+          {/* Desktop/tablet: 1 hàng ngang, đủ rộng để không vỡ chữ. */}
+          <div className="hidden flex-col gap-2 sm:flex">
+            {pageItems.map((s) => (
+              <div
+                key={s.id}
+                className="flex cursor-pointer items-start justify-between gap-2 rounded-lg border p-3 outline-none hover:bg-accent/40 focus-visible:bg-accent/40"
+                role="button"
+                tabIndex={0}
+                onClick={() => setDetailSettlement(s)}
+                onKeyDown={(ev) => {
+                  if (ev.target !== ev.currentTarget) return
+                  if (ev.key === 'Enter' || ev.key === ' ') {
+                    ev.preventDefault()
+                    setDetailSettlement(s)
+                  }
+                }}
+              >
+                <div className="flex min-w-0 items-start gap-2">
+                  {isAdmin && (
+                    <Checkbox
+                      className="mt-0.5"
+                      checked={selectedIds.has(s.id)}
+                      onCheckedChange={(v) => toggleSelected(s.id, v === true)}
+                      onClick={(ev) => ev.stopPropagation()}
+                      aria-label={`Chọn thanh toán ${memberName.get(s.fromId) ?? '?'} trả ${memberName.get(s.toId) ?? '?'}`}
+                    />
                   )}
+                  <div className="min-w-0">
+                    <p className="break-words text-sm">
+                      <span className="font-medium">{memberName.get(s.fromId) ?? '?'}</span> trả cho{' '}
+                      <span className="font-medium">{memberName.get(s.toId) ?? '?'}</span>
+                      {s.matches === false && (
+                        <AlertTriangle
+                          className="ml-1.5 inline size-3.5 align-text-top text-warning"
+                          aria-label="Chưa khớp số nợ thực tế"
+                        />
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Ngày duyệt: {formatDate(s.date)}</p>
+                    {s.effectiveAt && formatDateOnly(s.effectiveAt) !== formatDate(s.date) && (
+                      <p className="text-xs text-muted-foreground">
+                        Tính nợ đến: <span className="font-medium">{formatDateOnly(s.effectiveAt)}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-3" onClick={(ev) => ev.stopPropagation()}>
+                  <span className="font-medium">{formatCurrency(s.amount)}</span>
+                  <Badge variant={statusVariant[s.status]}>{statusLabel[s.status]}</Badge>
+                  <SettlementRowActions settlement={s} isAdmin={isAdmin} />
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-3" onClick={(ev) => ev.stopPropagation()}>
-                <span className="font-medium">{formatCurrency(s.amount)}</span>
-                <Badge variant={statusVariant[s.status]}>{statusLabel[s.status]}</Badge>
-                <SettlementRowActions settlement={s} isAdmin={isAdmin} />
+            ))}
+          </div>
+
+          {/* Mobile: tách 2 hàng (tên+số tiền / ngày+trạng thái+thao tác) — dồn
+              chung 1 hàng ở màn hẹp làm cột tên/ngày bị bóp, vỡ chữ. */}
+          <div className="flex flex-col gap-2 sm:hidden">
+            {pageItems.map((s) => (
+              <div
+                key={s.id}
+                className="flex cursor-pointer flex-col gap-2 rounded-lg border p-3 outline-none hover:bg-accent/40 focus-visible:bg-accent/40"
+                role="button"
+                tabIndex={0}
+                onClick={() => setDetailSettlement(s)}
+                onKeyDown={(ev) => {
+                  if (ev.target !== ev.currentTarget) return
+                  if (ev.key === 'Enter' || ev.key === ' ') {
+                    ev.preventDefault()
+                    setDetailSettlement(s)
+                  }
+                }}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-start gap-2">
+                    {isAdmin && (
+                      <Checkbox
+                        className="mt-0.5"
+                        checked={selectedIds.has(s.id)}
+                        onCheckedChange={(v) => toggleSelected(s.id, v === true)}
+                        onClick={(ev) => ev.stopPropagation()}
+                        aria-label={`Chọn thanh toán ${memberName.get(s.fromId) ?? '?'} trả ${memberName.get(s.toId) ?? '?'}`}
+                      />
+                    )}
+                    <p className="break-words text-sm">
+                      <span className="font-medium">{memberName.get(s.fromId) ?? '?'}</span> trả cho{' '}
+                      <span className="font-medium">{memberName.get(s.toId) ?? '?'}</span>
+                      {s.matches === false && (
+                        <AlertTriangle
+                          className="ml-1.5 inline size-3.5 align-text-top text-warning"
+                          aria-label="Chưa khớp số nợ thực tế"
+                        />
+                      )}
+                    </p>
+                  </div>
+                  <span className="shrink-0 font-medium">{formatCurrency(s.amount)}</span>
+                </div>
+
+                <div className="flex items-end justify-between gap-2">
+                  <div className="min-w-0 text-xs text-muted-foreground">
+                    <p>Ngày duyệt: {formatDate(s.date)}</p>
+                    {s.effectiveAt && formatDateOnly(s.effectiveAt) !== formatDate(s.date) && (
+                      <p>
+                        Tính nợ đến: <span className="font-medium text-foreground">{formatDateOnly(s.effectiveAt)}</span>
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2" onClick={(ev) => ev.stopPropagation()}>
+                    <Badge variant={statusVariant[s.status]}>{statusLabel[s.status]}</Badge>
+                    <SettlementRowActions settlement={s} isAdmin={isAdmin} />
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </>
       )}
 
       <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
