@@ -398,7 +398,7 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
                         />
                       )}
                     </p>
-                    <p className="text-xs text-muted-foreground">Ngày duyệt: {formatDate(s.date)}</p>
+                    <p className="text-xs text-muted-foreground">Ngày thanh toán: {formatDate(s.date)}</p>
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-3" onClick={(ev) => ev.stopPropagation()}>
@@ -455,7 +455,7 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
 
                 <div className="flex items-end justify-between gap-2">
                   <div className="min-w-0 text-xs text-muted-foreground">
-                    <p>Ngày duyệt: {formatDate(s.date)}</p>
+                    <p>Ngày thanh toán: {formatDate(s.date)}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2" onClick={(ev) => ev.stopPropagation()}>
                     <Badge variant={statusVariant[s.status]}>{statusLabel[s.status]}</Badge>

@@ -63,7 +63,7 @@ function SettlementDetailDialog({ settlement, memberName, isAdmin, onOpenChange 
                 {fromName} trả cho {toName}
               </DialogTitle>
               <DialogDescription>
-                {formatCurrency(settlement.amount)} · Ngày duyệt {formatDate(settlement.date)}
+                {formatCurrency(settlement.amount)} · Ngày thanh toán {formatDate(settlement.date)}
               </DialogDescription>
             </DialogHeader>
 
