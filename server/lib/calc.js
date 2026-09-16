@@ -95,8 +95,10 @@ function computeDebtMatrix(members, expenses, settlements) {
 }
 
 /**
- * Tính tổng kết theo từng người: đã trả hộ, phải chịu (thuần từ khoản chi),
- * và số dư (suy ra trực tiếp từ ma trận "ai nợ ai" để luôn khớp với mục đó).
+ * Tính tổng kết theo từng người: đã trả (khoản chi + thanh toán đã gửi),
+ * phải chịu (phần chia khoản chi + thanh toán đã nhận), và số dư (suy ra
+ * trực tiếp từ ma trận "ai nợ ai" để luôn khớp với mục đó — kể cả sau khi có
+ * thanh toán, "Đã trả" trừ "Phải chịu" luôn ra đúng số dư).
  */
 function computeSummary(members, expenses, settlements) {
   const paid = new Map(members.map((m) => [m.id, 0]));
@@ -110,6 +112,17 @@ function computeSummary(members, expenses, settlements) {
       if (owed.has(memberId)) {
         owed.set(memberId, owed.get(memberId) + amount);
       }
+    }
+  }
+  // Thanh toán: người gửi coi như "đã trả" thêm đúng số đó (tiền ra khỏi túi
+  // họ), người nhận coi như "phải chịu" thêm đúng số đó (đã được bù/tính vào
+  // họ rồi) — để "Đã trả" - "Phải chịu" luôn khớp đúng số dư ở mọi lúc.
+  for (const s of settlements) {
+    if (paid.has(s.fromId)) {
+      paid.set(s.fromId, paid.get(s.fromId) + s.amount);
+    }
+    if (owed.has(s.toId)) {
+      owed.set(s.toId, owed.get(s.toId) + s.amount);
     }
   }
 

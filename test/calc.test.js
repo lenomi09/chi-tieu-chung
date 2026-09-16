@@ -63,6 +63,22 @@ test('sau khi Huy trả 50.000đ cho Lan: số dư cập nhật đúng', () => {
   assert.equal(byId.minh.balance, 0);
 });
 
+test('sau khi Huy trả 50.000đ cho Lan: "Đã trả"/"Phải chịu" cũng phải cộng thêm thanh toán, khớp đúng số dư', () => {
+  const settlements = [
+    { id: 's1', date: '2026-09-05', fromId: 'huy', toId: 'lan', amount: 50000 },
+  ];
+  const summary = computeSummary(members, expenses, settlements);
+  const byId = Object.fromEntries(summary.map((s) => [s.id, s]));
+
+  // Huy (nguoi gui) "da tra" cong them 50.000; Lan (nguoi nhan) "phai chiu" cong them 50.000.
+  assert.equal(byId.huy.totalPaid, 0 + 50000); // von khong tra khoan chi nao
+  assert.equal(byId.lan.totalOwed, 50000 + 50000); // phan chia goc 50.000 + 50.000 da nhan
+  // "Da tra" - "Phai chiu" phai luon khop dung so du, ke ca sau khi co thanh toan.
+  for (const s of summary) {
+    assert.equal(s.totalPaid - s.totalOwed, s.balance, `${s.name}: Đã trả - Phải chịu phải khớp balance`);
+  }
+});
+
 test('sau khi Huy trả 50.000đ cho Lan: "Huy nợ Lan" biến mất, "Huy nợ Minh" còn nguyên', () => {
   const settlements = [
     { id: 's1', date: '2026-09-05', fromId: 'huy', toId: 'lan', amount: 50000 },
