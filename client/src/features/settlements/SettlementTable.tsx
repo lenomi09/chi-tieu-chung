@@ -12,7 +12,7 @@ import { Pagination } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAppState } from '@/context/AppStateContext'
 import { api } from '@/lib/api'
-import { dateToIso, formatCurrency, formatDate, formatDateOnly } from '@/lib/format'
+import { dateToIso, formatCurrency, formatDate } from '@/lib/format'
 import type { Member, RequestStatus, Settlement } from '@/lib/types'
 import { SettlementDetailDialog } from './SettlementDetailDialog'
 
@@ -399,11 +399,6 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
                       )}
                     </p>
                     <p className="text-xs text-muted-foreground">Ngày duyệt: {formatDate(s.date)}</p>
-                    {s.effectiveAt && formatDateOnly(s.effectiveAt) !== formatDate(s.date) && (
-                      <p className="text-xs text-muted-foreground">
-                        Tính nợ đến: <span className="font-medium">{formatDateOnly(s.effectiveAt)}</span>
-                      </p>
-                    )}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-3" onClick={(ev) => ev.stopPropagation()}>
@@ -461,11 +456,6 @@ function SettlementTable({ settlements, members, isAdmin }: SettlementTableProps
                 <div className="flex items-end justify-between gap-2">
                   <div className="min-w-0 text-xs text-muted-foreground">
                     <p>Ngày duyệt: {formatDate(s.date)}</p>
-                    {s.effectiveAt && formatDateOnly(s.effectiveAt) !== formatDate(s.date) && (
-                      <p>
-                        Tính nợ đến: <span className="font-medium text-foreground">{formatDateOnly(s.effectiveAt)}</span>
-                      </p>
-                    )}
                   </div>
                   <div className="flex shrink-0 items-center gap-2" onClick={(ev) => ev.stopPropagation()}>
                     <Badge variant={statusVariant[s.status]}>{statusLabel[s.status]}</Badge>
