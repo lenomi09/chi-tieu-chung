@@ -102,14 +102,15 @@ function DebtDetailView({ debt, memberName, onBack }: DebtDetailViewProps) {
             <div className="flex flex-col gap-2">
               {matches ? (
                 <Alert variant="success">
-                  <AlertTitle>Khớp đúng số nợ hiện tại</AlertTitle>
+                  <AlertTitle>Khớp đúng số nợ ({formatCurrency(debt.amount)})</AlertTitle>
                 </Alert>
               ) : (
                 <Alert variant="warning">
                   <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <AlertTitle>
-                      Số nợ vừa đổi thành {formatCurrency(explain.amount)} (đang hiện {formatCurrency(debt.amount)})
-                    </AlertTitle>
+                    <div>
+                      <AlertTitle>Số nợ vừa đổi thành {formatCurrency(explain.amount)}</AlertTitle>
+                      <p className="text-xs opacity-90">Đang hiển thị: {formatCurrency(debt.amount)}</p>
+                    </div>
                     <Button type="button" size="sm" variant="outline" loading={reloading} onClick={handleReload}>
                       Tải lại
                     </Button>
