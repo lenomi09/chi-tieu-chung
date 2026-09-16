@@ -14,12 +14,14 @@ interface DebtRowProps {
   isAdmin: boolean
   /** Đã có 1 yêu cầu ghi nhận trả nợ (cùng người trả/nhận) đang chờ duyệt. */
   isPending: boolean
+  /** Bấm vào dòng (không phải nút Đã trả) để xem khoản nợ này gồm những khoản chi nào. */
+  onOpenDetail: () => void
 }
 
-// Bấm thẳng trên dòng nợ để ghi nhận đã trả — KHÔNG có form nhập tay người
-// trả/người nhận/số tiền, để tránh ghi nhầm: số tiền luôn đúng bằng đúng số nợ
-// đang hiện tại thời điểm bấm.
-function DebtRow({ debt, fromName, toName, isAdmin, isPending }: DebtRowProps) {
+// Bấm vào dòng để xem chi tiết; nút "Đã trả" ghi nhận đã trả — KHÔNG có form
+// nhập tay người trả/người nhận/số tiền, để tránh ghi nhầm: số tiền luôn
+// đúng bằng đúng số nợ đang hiện tại thời điểm bấm.
+function DebtRow({ debt, fromName, toName, isAdmin, isPending, onOpenDetail }: DebtRowProps) {
   const { mutate } = useAppState()
   const confirm = useConfirm()
   const [busy, setBusy] = React.useState(false)
@@ -55,13 +57,25 @@ function DebtRow({ debt, fromName, toName, isAdmin, isPending }: DebtRowProps) {
   }
 
   return (
-    <div className="flex items-center justify-between gap-2 px-3 py-2.5 text-sm">
+    <div
+      className="flex cursor-pointer items-center justify-between gap-2 px-3 py-2.5 text-sm outline-none hover:bg-accent/40 focus-visible:bg-accent/40"
+      role="button"
+      tabIndex={0}
+      onClick={onOpenDetail}
+      onKeyDown={(ev) => {
+        if (ev.target !== ev.currentTarget) return
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault()
+          onOpenDetail()
+        }
+      }}
+    >
       <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
         <span className="break-words font-medium">{fromName}</span>
         <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
         <span className="break-words font-medium">{toName}</span>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2" onClick={(ev) => ev.stopPropagation()}>
         <span className="font-semibold text-destructive">{formatCurrency(debt.amount)}</span>
         {isPending ? (
           <span className="rounded-md border border-input px-2.5 py-1.5 text-xs text-muted-foreground">

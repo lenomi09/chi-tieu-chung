@@ -153,19 +153,10 @@ function computeDebts(members, expenses, settlements) {
   return debts;
 }
 
-/**
- * Giải thích 1 thanh toán cụ thể: liệt kê các khoản chi GIỮA ĐÚNG 2 NGƯỜI đó
- * đã được nó tất toán — tính từ lần thanh toán liền trước giữa 2 người này
- * (hoặc từ đầu, nếu đây là lần đầu) cho tới chính thanh toán này. Chỉ cần xét
- * event trực tiếp giữa 2 người (không qua trung gian), vì mỗi ô trong ma trận
- * nợ chỉ bị ảnh hưởng bởi event của đúng cặp đó (xem computeDebtMatrix).
- */
-function explainSettlement(members, expenses, settlements, settlementId) {
-  const target = settlements.find((s) => s.id === settlementId);
-  if (!target) return null;
-  const A = target.fromId;
-  const B = target.toId;
-
+// Dựng danh sách event (khoản chi + thanh toán) trực tiếp GIỮA ĐÚNG 2 NGƯỜI
+// A, B, đã sắp theo đúng thứ tự thời gian — dùng chung cho explainSettlement
+// và explainDebt (chỉ khác nhau ở cách "đọc" kết quả replay các event này).
+function buildPairEvents(expenses, settlements, A, B) {
   const events = [];
   for (const e of expenses) {
     for (const { memberId, amount } of resolveShares(e)) {
@@ -184,6 +175,23 @@ function explainSettlement(members, expenses, settlements, settlementId) {
     events.push({ date: s.effectiveAt || s.date, kind: 1, id: s.id, displayDate: s.date });
   }
   events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.kind - b.kind));
+  return events;
+}
+
+/**
+ * Giải thích 1 thanh toán cụ thể: liệt kê các khoản chi GIỮA ĐÚNG 2 NGƯỜI đó
+ * đã được nó tất toán — tính từ lần thanh toán liền trước giữa 2 người này
+ * (hoặc từ đầu, nếu đây là lần đầu) cho tới chính thanh toán này. Chỉ cần xét
+ * event trực tiếp giữa 2 người (không qua trung gian), vì mỗi ô trong ma trận
+ * nợ chỉ bị ảnh hưởng bởi event của đúng cặp đó (xem computeDebtMatrix).
+ */
+function explainSettlement(members, expenses, settlements, settlementId) {
+  const target = settlements.find((s) => s.id === settlementId);
+  if (!target) return null;
+  const A = target.fromId;
+  const B = target.toId;
+
+  const events = buildPairEvents(expenses, settlements, A, B);
 
   let debtAB = 0; // A nợ B
   let debtBA = 0; // B nợ A
@@ -230,6 +238,52 @@ function explainSettlement(members, expenses, settlements, settlementId) {
 }
 
 /**
+ * Giải thích khoản nợ ĐANG HIỆN TẠI giữa đúng 2 người (fromId nợ toId, đúng
+ * 1 chiều trong ma trận nợ) — liệt kê các khoản chi đã góp phần tạo nên số nợ
+ * này, tính từ lần tất toán gần nhất giữa 2 người (hoặc từ đầu). Khác
+ * explainSettlement ở chỗ: đọc hết TOÀN BỘ event tới cuối (không dừng ở 1
+ * thanh toán cụ thể) — kết quả chính là số nợ hiện đang hiển thị.
+ */
+function explainDebt(members, expenses, settlements, fromId, toId) {
+  const A = fromId;
+  const B = toId;
+  const events = buildPairEvents(expenses, settlements, A, B);
+
+  let debtAB = 0; // A nợ B
+  let debtBA = 0; // B nợ A
+  let items = [];
+  let sinceDate = null;
+
+  for (const ev of events) {
+    if (ev.kind === 0) {
+      if (ev.ower === A) {
+        const cancel = Math.min(debtBA, ev.amount);
+        debtBA -= cancel;
+        debtAB += ev.amount - cancel;
+      } else {
+        const cancel = Math.min(debtAB, ev.amount);
+        debtAB -= cancel;
+        debtBA += ev.amount - cancel;
+      }
+      items.push({
+        expenseId: ev.expenseId,
+        description: ev.description,
+        date: ev.date,
+        ower: ev.ower,
+        amount: round(ev.amount),
+      });
+    } else {
+      debtAB = 0;
+      debtBA = 0;
+      items = [];
+      sinceDate = ev.displayDate;
+    }
+  }
+
+  return { fromId: A, toId: B, items, sinceDate, amount: round(debtAB) };
+}
+
+/**
  * Kiểm tra TỪNG thanh toán: số tiền ghi nhận (paidAmount) có khớp đúng số nợ
  * thực tế NGAY TRƯỚC lúc nó tất toán (expectedAmount) không — dựa trên
  * explainSettlement(). Lệch có thể do: trả thiếu/dư ngoài đời, tính nhầm khi
@@ -263,6 +317,7 @@ function checkSettlements(members, expenses, settlements) {
   computeSummary,
   computeDebts,
   explainSettlement,
+  explainDebt,
   checkSettlements,
   round,
 });

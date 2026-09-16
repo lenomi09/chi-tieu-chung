@@ -1,6 +1,8 @@
+import * as React from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import type { Debt, Member, Settlement } from '@/lib/types'
+import { DebtDetailDialog } from './DebtDetailDialog'
 import { DebtRow } from './DebtRow'
 
 interface MemberDebtDialogProps {
@@ -15,6 +17,7 @@ interface MemberDebtDialogProps {
 // Bấm vào 1 người trong "Tổng kết" để xem người đó đang nợ ai và ai đang nợ
 // người đó — gộp thẳng vào đây thay vì tách riêng thành mục "Ai nợ ai".
 function MemberDebtDialog({ member, debts, members, settlements, isAdmin, onOpenChange }: MemberDebtDialogProps) {
+  const [detailDebt, setDetailDebt] = React.useState<Debt | null>(null)
   const memberName = new Map(members.map((m) => [m.id, m.name]))
   const owedByMember = member ? debts.filter((d) => d.fromId === member.id) : []
   const owedToMember = member ? debts.filter((d) => d.toId === member.id) : []
@@ -51,6 +54,7 @@ function MemberDebtDialog({ member, debts, members, settlements, isAdmin, onOpen
                         toName={memberName.get(d.toId) ?? '?'}
                         isAdmin={isAdmin}
                         isPending={isPending(d)}
+                        onOpenDetail={() => setDetailDebt(d)}
                       />
                     ))}
                   </div>
@@ -71,6 +75,7 @@ function MemberDebtDialog({ member, debts, members, settlements, isAdmin, onOpen
                         toName={memberName.get(d.toId) ?? '?'}
                         isAdmin={isAdmin}
                         isPending={isPending(d)}
+                        onOpenDetail={() => setDetailDebt(d)}
                       />
                     ))}
                   </div>
@@ -80,6 +85,7 @@ function MemberDebtDialog({ member, debts, members, settlements, isAdmin, onOpen
           </>
         )}
       </DialogContent>
+      <DebtDetailDialog debt={detailDebt} memberName={memberName} onOpenChange={(open) => !open && setDetailDebt(null)} />
     </Dialog>
   )
 }

@@ -1,4 +1,4 @@
-import type { AppState, ExpensePayload, SettlementExplain, SettlementPayload } from './types'
+import type { AppState, DebtExplain, ExpensePayload, SettlementExplain, SettlementPayload } from './types'
 
 export class ApiError extends Error {}
 
@@ -70,6 +70,7 @@ export const api = {
   fixSettlementAmount: (id: string) => request<AppState>(`/api/settlements/${id}/fix-amount`, { method: 'PUT' }),
   deleteSettlement: (id: string) => request<AppState>(`/api/settlements/${id}`, { method: 'DELETE' }),
   explainSettlement: (id: string) => request<SettlementExplain>(`/api/settlements/${id}/explain`),
+  explainDebt: (fromId: string, toId: string) => request<DebtExplain>(`/api/debts/${fromId}/${toId}/explain`),
 
   reset: () => request<AppState>('/api/reset', { method: 'POST' }),
 }

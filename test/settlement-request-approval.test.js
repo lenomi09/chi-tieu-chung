@@ -254,3 +254,33 @@ test('tự sửa số tiền thanh toán về đúng nợ thực tế: khớp l�
     'không có nợ gì để tất toán -> phải bị xoá'
   );
 });
+
+test('giải thích khoản nợ hiện tại (mục "ai nợ ai"): đúng khoản chi, id thành viên sai trả 404', async () => {
+  const { cookie } = await api('/api/login', { method: 'POST', body: { password: 'test-password' } });
+  const addMember = async (name) => {
+    const r = await api('/api/members', { method: 'POST', cookie, body: { name } });
+    return r.data.members.find((m) => m.name === name).id;
+  };
+  const an = await addMember('An_explain_debt');
+  const binh = await addMember('Binh_explain_debt');
+
+  await api('/api/expenses', {
+    method: 'POST',
+    cookie,
+    body: { date: '2026-09-01', amount: 60000, payerId: binh, shareMemberIds: [an, binh] }, // An nợ Binh 30.000
+  });
+
+  const notFound = await api('/api/debts/khong-ton-tai/' + binh + '/explain');
+  assert.equal(notFound.status, 404);
+
+  const res = await api(`/api/debts/${an}/${binh}/explain`);
+  assert.equal(res.status, 200);
+  assert.equal(res.data.amount, 30000);
+  assert.equal(res.data.items.length, 1);
+  assert.equal(res.data.sinceDate, null);
+
+  // Chiều ngược lại (Binh khong no An) -> amount = 0, khong co khoan nao.
+  const reverse = await api(`/api/debts/${binh}/${an}/explain`);
+  assert.equal(reverse.status, 200);
+  assert.equal(reverse.data.amount, 0);
+});

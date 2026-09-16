@@ -108,3 +108,13 @@ export interface SettlementExplain {
   paidAmount: number
   settlementDate: string
 }
+
+export interface DebtExplain {
+  fromId: string
+  toId: string
+  items: SettlementExplainItem[]
+  /** Ngày tất toán gần nhất giữa 2 người — null nếu chưa từng tất toán (tính từ đầu). */
+  sinceDate: string | null
+  /** Số nợ hiện tại (fromId nợ toId) — nên khớp đúng amount của Debt tương ứng. */
+  amount: number
+}

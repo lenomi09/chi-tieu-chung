@@ -27,6 +27,23 @@ router.get(
   })
 );
 
+// ---- Giải thích khoản nợ ĐANG HIỆN TẠI giữa đúng 2 người (mục "ai nợ ai") ----
+
+router.get(
+  '/debts/:fromId/:toId/explain',
+  asyncRoute(async (req, res) => {
+    const { members, expenses, settlements } = await db.getState();
+    const validIds = new Set(members.map((m) => m.id));
+    if (!validIds.has(req.params.fromId) || !validIds.has(req.params.toId)) {
+      return res.status(404).json({ error: 'Không tìm thấy thành viên' });
+    }
+    const approvedExpenses = expenses.filter((e) => e.status === 'approved');
+    const approvedSettlements = settlements.filter((s) => s.status === 'approved');
+    const result = calc.explainDebt(members, approvedExpenses, approvedSettlements, req.params.fromId, req.params.toId);
+    res.json(result);
+  })
+);
+
 // ---- Thanh toán (admin ghi nhận trực tiếp -> approved ngay) ----
 
 router.post(

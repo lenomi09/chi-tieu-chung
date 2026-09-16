@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { computeSummary, computeDebts, explainSettlement, checkSettlements } = require('../server/lib/calc');
+const { computeSummary, computeDebts, explainSettlement, explainDebt, checkSettlements } = require('../server/lib/calc');
 
 const members = [
   { id: 'lan', name: 'Lan' },
@@ -240,4 +240,34 @@ test('checkSettlements: phát hiện đúng khoản trả thiếu/trả dư so v
   const [check3] = checkSettlements(members, expenses, settlementsDu);
   assert.equal(check3.expectedAmount, 50000);
   assert.equal(check3.matches, false);
+});
+
+test('explainDebt: liệt kê đúng khoản chi tạo nên nợ hiện tại giữa 2 người', () => {
+  // Bộ số liệu mẫu, chưa thanh toán gì -> Huy nợ Lan 50.000 (tính từ đầu).
+  const explain1 = explainDebt(members, expenses, [], 'huy', 'lan');
+  assert.equal(explain1.amount, 50000);
+  assert.equal(explain1.sinceDate, null);
+  assert.equal(explain1.items.length, 1);
+  assert.equal(explain1.items[0].expenseId, 'e1');
+
+  // Sau khi Huy trả đủ 50.000 -> nợ hiện tại về 0, không còn khoản nào.
+  const settlements = [{ id: 's1', date: '2026-09-05', fromId: 'huy', toId: 'lan', amount: 50000 }];
+  const explain2 = explainDebt(members, expenses, settlements, 'huy', 'lan');
+  assert.equal(explain2.amount, 0);
+  assert.equal(explain2.items.length, 0);
+  assert.equal(explain2.sinceDate, '2026-09-05');
+
+  // Thêm khoản chi mới SAU khi tất toán -> nợ hiện tại chỉ tính từ đó.
+  const laterExpense = {
+    id: 'e3',
+    date: '2026-09-06',
+    description: 'Đồ dùng chung 3',
+    amount: 20000,
+    payerId: 'lan',
+    shareMemberIds: ['lan', 'huy'],
+  };
+  const explain3 = explainDebt(members, [...expenses, laterExpense], settlements, 'huy', 'lan');
+  assert.equal(explain3.amount, 10000);
+  assert.equal(explain3.items.length, 1);
+  assert.equal(explain3.items[0].expenseId, 'e3');
 });
