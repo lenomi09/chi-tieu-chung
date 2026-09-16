@@ -128,7 +128,12 @@ function SettlementDetailDialog({ settlement, memberName, isAdmin, onOpenChange 
                     </p>
                   ) : (
                     <div className="flex flex-col divide-y rounded-md border">
-                      {explain.items.map((item) => (
+                      {/* Hiện khoản mới nhất lên đầu — explain.items gốc vẫn
+                          giữ thứ tự tăng dần (dùng ở items[0] phía trên để suy
+                          ra ngày bắt đầu khi chưa có sinceDate). */}
+                      {[...explain.items]
+                        .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+                        .map((item) => (
                         <div key={item.expenseId} className="flex items-center justify-between gap-2 px-3 py-1.5">
                           <div className="min-w-0">
                             <p className="truncate">{item.description}</p>

@@ -65,8 +65,12 @@ function DebtDetailView({ debt, memberName }: DebtDetailViewProps) {
         <EmptyState title="Không tải được chi tiết" description="Thử mở lại sau." />
       ) : (
         (() => {
-          const visibleItems = expanded ? explain.items : explain.items.slice(0, PREVIEW_COUNT)
-          const remaining = explain.items.length - visibleItems.length
+          // Hiện khoản mới nhất lên đầu — dễ nhìn ra khoản chi gần đây nhất,
+          // trong khi tính toán bên trong (explain.items) vẫn giữ đúng thứ tự
+          // thời gian tăng dần cần thiết cho logic tất toán/nợ chồng chéo.
+          const sortedItems = [...explain.items].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+          const visibleItems = expanded ? sortedItems : sortedItems.slice(0, PREVIEW_COUNT)
+          const remaining = sortedItems.length - visibleItems.length
           return (
             <div className="flex flex-col gap-2">
               {/* Tiêu đề "X nợ Y" ở trên luôn đứng yên (nằm ngoài khung này) —
