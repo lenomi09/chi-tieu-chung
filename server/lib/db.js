@@ -96,6 +96,20 @@ async function doInit() {
   if (!(await columnExists('settlements', 'approved_at'))) {
     await client.execute('ALTER TABLE settlements ADD COLUMN approved_at TEXT');
   }
+  // Backfill cho dữ liệu ĐÃ duyệt từ trước khi có cột approved_at: gán mốc
+  // đầu ngày (00:00:00) của chính `date` bản ghi đó — không phải giờ thật,
+  // nhưng luôn ĐÚNG một sự thật là các khoản này đã được duyệt trước "bây
+  // giờ". Nhờ vậy 1 khoản MỚI duyệt hôm nay, trùng ngày với 1 khoản CŨ đã có
+  // từ trước, sẽ luôn xếp SAU khoản cũ đó (đúng thực tế), thay vì bị quy tắc
+  // ảo "thanh toán luôn chốt sổ cuối ngày" (áp dụng khi thiếu approved_at)
+  // nuốt mất. Vô hại nếu chạy lại nhiều lần — chỉ đụng dòng đang NULL.
+  await client.batch(
+    [
+      "UPDATE expenses SET approved_at = date || 'T00:00:00.000Z' WHERE status = 'approved' AND approved_at IS NULL",
+      "UPDATE settlements SET approved_at = date || 'T00:00:00.000Z' WHERE status = 'approved' AND approved_at IS NULL",
+    ],
+    'write'
+  );
 }
 
 function init() {
