@@ -3,7 +3,7 @@ import * as React from 'react'
 import { DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { api } from '@/lib/api'
-import { formatCurrency, formatDate } from '@/lib/format'
+import { formatCurrency, formatDate, todayIso } from '@/lib/format'
 import type { Debt, DebtExplain } from '@/lib/types'
 
 interface DebtDetailViewProps {
@@ -59,17 +59,16 @@ function DebtDetailView({ debt, memberName }: DebtDetailViewProps) {
       ) : (
         <div className="flex flex-col gap-1.5 text-sm">
           <p className="text-xs text-muted-foreground">
-            Tính từ{' '}
+            Tính từ ngày{' '}
             {explain.sinceDate
               ? formatDate(explain.sinceDate)
               : explain.items.length > 0
                 ? formatDate(explain.items[0].date)
-                : 'trước tới nay'}{' '}
-            · {explain.items.length === 0 ? 'không có khoản chi nào' : `${explain.items.length} khoản chi`}
+                : formatDate(todayIso())}{' '}
+            đến hôm nay ({formatDate(todayIso())}) ·{' '}
+            {explain.items.length === 0 ? 'không có khoản chi nào' : `${explain.items.length} khoản chi`}
           </p>
-          {explain.items.length === 0 ? (
-            <p className="rounded-md border px-3 py-2 text-muted-foreground">Không có khoản chi nào.</p>
-          ) : (
+          {explain.items.length === 0 ? null : (
             <div className="flex flex-col divide-y rounded-md border">
               {explain.items.map((item) => (
                 <div key={item.expenseId} className="flex items-center justify-between gap-2 px-3 py-1.5">
