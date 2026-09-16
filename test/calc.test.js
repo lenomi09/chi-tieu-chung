@@ -287,3 +287,17 @@ test('explainDebt: liệt kê đúng khoản chi tạo nên nợ hiện tại gi
   assert.equal(explain3.items.length, 1);
   assert.equal(explain3.items[0].expenseId, 'e3');
 });
+
+test('explainDebt/explainSettlement: items[].date luôn là ngày sạch (không kèm giờ), dù khoản chi có effectiveAt riêng', () => {
+  // effectiveAt kèm giờ (như thực tế đã gặp) chỉ được dùng để SẮP XẾP, không
+  // được lộ ra ngoài items[].date — nếu không, client hiện thẳng chuỗi thô
+  // "2026-09-15T23:59:59" thay vì ngày bình thường.
+  const expensesWithEffectiveAt = [
+    { ...expenses[0], effectiveAt: '2026-09-15T23:59:59' },
+    expenses[1],
+  ];
+  const explain = explainDebt(members, expensesWithEffectiveAt, [], 'huy', 'lan');
+  const item = explain.items.find((i) => i.expenseId === 'e1');
+  assert.ok(item);
+  assert.equal(item.date, '2026-09-01'); // dung date goc, khong phai effectiveAt
+});

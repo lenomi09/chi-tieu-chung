@@ -175,10 +175,13 @@ function buildPairEvents(expenses, settlements, A, B) {
     for (const { memberId, amount } of resolveShares(e)) {
       if (memberId === e.payerId) continue;
       const eventDate = e.effectiveAt || e.date;
+      // displayDate luôn là `date` gốc (không kèm giờ) — effectiveAt (nếu có)
+      // chỉ dùng để SẮP XẾP, không phải để hiển thị (tránh in ra chuỗi kèm
+      // giờ kiểu "2026-09-15T23:59:59" ở danh sách khoản chi cho người dùng).
       if (memberId === A && e.payerId === B) {
-        events.push({ date: eventDate, kind: 0, ower: A, amount, expenseId: e.id, description: e.description });
+        events.push({ date: eventDate, displayDate: e.date, kind: 0, ower: A, amount, expenseId: e.id, description: e.description });
       } else if (memberId === B && e.payerId === A) {
-        events.push({ date: eventDate, kind: 0, ower: B, amount, expenseId: e.id, description: e.description });
+        events.push({ date: eventDate, displayDate: e.date, kind: 0, ower: B, amount, expenseId: e.id, description: e.description });
       }
     }
   }
@@ -225,7 +228,7 @@ function explainSettlement(members, expenses, settlements, settlementId) {
       items.push({
         expenseId: ev.expenseId,
         description: ev.description,
-        date: ev.date,
+        date: ev.displayDate,
         ower: ev.ower,
         amount: round(ev.amount),
       });
@@ -281,7 +284,7 @@ function explainDebt(members, expenses, settlements, fromId, toId) {
       items.push({
         expenseId: ev.expenseId,
         description: ev.description,
-        date: ev.date,
+        date: ev.displayDate,
         ower: ev.ower,
         amount: round(ev.amount),
       });
