@@ -56,13 +56,10 @@ function SettlementDetailDialog({ settlement, memberName, isAdmin, onOpenChange 
               <DialogTitle className="pr-6">
                 {fromName} trả cho {toName}
               </DialogTitle>
-              <DialogDescription>{formatCurrency(settlement.amount)}</DialogDescription>
+              <DialogDescription>
+                {formatCurrency(settlement.amount)} · Ngày duyệt {formatDate(settlement.date)}
+              </DialogDescription>
             </DialogHeader>
-
-            <div className="text-sm">
-              <p className="text-xs text-muted-foreground">Ngày duyệt thanh toán</p>
-              <p className="font-medium">{formatDate(settlement.date)}</p>
-            </div>
 
             {loading ? (
               <div className="flex h-24 items-center justify-center text-muted-foreground">
@@ -71,7 +68,7 @@ function SettlementDetailDialog({ settlement, memberName, isAdmin, onOpenChange 
             ) : !explain ? (
               <EmptyState title="Không tải được chi tiết" description="Thử mở lại sau." />
             ) : (
-              <div className="flex flex-col gap-4 text-sm">
+              <div className="flex flex-col gap-3 text-sm">
                 {(() => {
                   const expected = explain.debtBeforeAToB > 0 ? explain.debtBeforeAToB : explain.debtBeforeBToA
                   const diff = explain.paidAmount - expected
@@ -90,12 +87,17 @@ function SettlementDetailDialog({ settlement, memberName, isAdmin, onOpenChange 
                   }
                   return matches ? (
                     <Alert variant="success">
-                      <AlertTitle>Khớp đúng số nợ</AlertTitle>
+                      <AlertTitle>Khớp đúng số nợ ({formatCurrency(expected)})</AlertTitle>
                     </Alert>
                   ) : (
                     <Alert variant="warning">
                       <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <AlertTitle>{diff > 0 ? `Trả dư ${formatCurrency(diff)}` : `Trả thiếu ${formatCurrency(-diff)}`}</AlertTitle>
+                        <div>
+                          <AlertTitle>
+                            {diff > 0 ? `Trả dư ${formatCurrency(diff)}` : `Trả thiếu ${formatCurrency(-diff)}`}
+                          </AlertTitle>
+                          <p className="text-xs opacity-90">Nợ thực tế lúc đó: {formatCurrency(expected)}</p>
+                        </div>
                         {isAdmin && (
                           <Button type="button" size="sm" variant="outline" loading={fixing} onClick={handleFix}>
                             Sửa đúng số tiền
@@ -106,46 +108,23 @@ function SettlementDetailDialog({ settlement, memberName, isAdmin, onOpenChange 
                   )
                 })()}
 
-                <div>
-                  <p className="text-xs text-muted-foreground">Khoảng thời gian tính nợ</p>
-                  <p className="font-medium">
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-xs text-muted-foreground">
+                    Tính nợ từ{' '}
                     {explain.sinceDate
                       ? formatDate(explain.sinceDate)
                       : explain.items.length > 0
                         ? formatDateOnly(explain.items[0].date)
                         : formatDateOnly(settlement.effectiveAt || settlement.date)}{' '}
-                    → {formatDateOnly(settlement.effectiveAt || settlement.date)}
+                    đến {formatDateOnly(settlement.effectiveAt || settlement.date)}
                     {settlement.effectiveAt && formatDateOnly(settlement.effectiveAt) !== formatDate(settlement.date) && (
-                      <span className="ml-1 text-xs font-normal text-warning">(đã điều chỉnh)</span>
-                    )}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Nợ trước khi tất toán</p>
-                    <p className="font-semibold">
-                      {explain.debtBeforeAToB > 0
-                        ? `${fromName} nợ ${toName} ${formatCurrency(explain.debtBeforeAToB)}`
-                        : explain.debtBeforeBToA > 0
-                          ? `${toName} nợ ${fromName} ${formatCurrency(explain.debtBeforeBToA)}`
-                          : 'Không ai nợ ai'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Đã trả</p>
-                    <p className="font-semibold">{formatCurrency(explain.paidAmount)}</p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <p className="text-xs text-muted-foreground">
-                    Khoản chi được tất toán ({explain.items.length === 0 ? 'không có' : `${explain.items.length} khoản`}
-                    )
+                      <span className="text-warning"> (đã điều chỉnh)</span>
+                    )}{' '}
+                    · {explain.items.length === 0 ? 'không có khoản chi nào' : `${explain.items.length} khoản chi`}
                   </p>
                   {explain.items.length === 0 ? (
                     <p className="rounded-md border px-3 py-2 text-muted-foreground">
-                      Không có khoản chi nào — số tiền trả lần này coi như dư/không cần thiết.
+                      Số tiền trả lần này không ứng với khoản chi nào cả.
                     </p>
                   ) : (
                     <div className="flex flex-col divide-y rounded-md border">
